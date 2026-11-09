@@ -53,7 +53,7 @@ mark{background:#ffe38a;color:inherit;border-radius:2px}
 .subnav{display:flex;gap:6px;margin-bottom:12px}.subnav button.on{background:#1d2fa0;color:#fff;border-color:#1d2fa0}
 @media print{.nav{display:none!important}}
 </style></head><body>
-<div id="scan_modal" class="ui" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:16px"><div class="panel" style="width:min(420px,100%);margin:0"><h2>Scan barcode</h2><div id="scan_view" style="width:100%;background:#000;position:relative"><video id="scan_video" playsinline muted autoplay style="width:100%;height:42vh;object-fit:cover;display:block"></video><div style="position:absolute;left:8%;right:8%;top:25%;bottom:25%;border:2px solid #ffe600;border-radius:6px;pointer-events:none"></div></div><div id="scan_tmp" style="display:none"></div><div id="scan_st" class="muted" style="margin:8px 0 2px"></div><div id="scan_n" class="muted"></div><div class="muted" style="margin:2px 0 8px">Hold the phone 10–20 cm away, keep the barcode flat and well lit.</div><div class="row" style="margin-bottom:8px"><input type="text" id="scan_manual" placeholder="Type barcode"><button id="scan_ok">Use code</button></div><div class="row" style="flex-wrap:wrap"><label class="btnlike p">Take photo<input type="file" accept="image/*" capture="environment" id="scan_file" hidden></label><button id="scan_close">Close</button></div></div></div>
+<div id="scan_modal" class="ui" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:16px"><div class="panel" style="width:min(420px,100%);margin:0"><h2>Scan barcode</h2><div id="scan_view" style="width:100%;background:#000;position:relative"><video id="scan_video" playsinline muted autoplay style="width:100%;height:42vh;object-fit:cover;display:block"></video><div style="position:absolute;left:8%;right:8%;top:25%;bottom:25%;border:2px solid #ffe600;border-radius:6px;pointer-events:none"></div></div><div id="scan_tmp" style="display:none"></div><div id="scan_st" class="muted" style="margin:8px 0 2px"></div><div id="scan_n" class="muted"></div><div class="muted" style="font-size:10px">v4</div><div class="muted" style="margin:2px 0 8px">Hold the phone 10–20 cm away, keep the barcode flat and well lit.</div><div class="row" style="margin-bottom:8px"><input type="text" id="scan_manual" placeholder="Type barcode"><button id="scan_ok">Use code</button></div><div class="row" style="flex-wrap:wrap"><label class="btnlike p">Take photo<input type="file" accept="image/*" capture="environment" id="scan_file" hidden></label><button id="scan_close">Close</button></div></div></div>
 <div class="nav ui"><b>Provision Shop Manager</b><button data-v="products">Product Management</button><button data-v="labels">Price Labels</button><button data-v="stock">Stocktake</button><button data-v="sup">Suppliers</button><button id="lang" style="margin-left:auto">中文</button></div>
 <div class="app" id="v-labels">
 <div class="ui">
@@ -322,6 +322,63 @@ async function openScan(cb,cont){
  }catch(e){stopStream();scanSt(t("Camera unavailable here. Use Take photo instead.")+" ("+((e&&(e.name||e.message))||e)+")")}}
 let stream=null,scanTimer=null,scanBusy=false,scanQ=null,scanN=0,scanTick=0;
 function h5cfg(){const F=window.Html5QrcodeSupportedFormats,c={verbose:false};if(F)c.formatsToSupport=[F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.CODE_128,F.CODE_39];return c}
+const rl=s=>{const r=[];let c=1;for(let i=1;i<s.length;i++){if(s[i]===s[i-1])c++;else{r.push(c);c=1}}r.push(c);return r};
+const RT=T.map(rl),RR=R.map(rl),RG=G.map(rl);
+let EO={win:12,fac:1.04,sm:0,cost:2.5,hy:.06};
+function eanDecodeLine(g,o){o=o||EO;
+ const n=g.length;if(n<120)return null;
+ if(o.sm>0){const t=new Float32Array(n);for(let i=0;i<n;i++){let a=0,c2=0;for(let q=-o.sm;q<=o.sm;q++){const j=i+q;if(j>=0&&j<n){a+=g[j];c2++}}t[i]=a/c2}g=t}
+ const w=(Math.max(31,(n/o.win)|0))|1,half=w>>1,ps=new Float64Array(n+1);
+ for(let i=0;i<n;i++)ps[i+1]=ps[i]+g[i];
+ let mn=1e9,mx=-1e9;for(let i=0;i<n;i++){if(g[i]<mn)mn=g[i];if(g[i]>mx)mx=g[i]}
+ if(mx-mn<40)return null;
+ const hy=(mx-mn)*o.hy,sg=new Float32Array(n);
+ for(let i=0;i<n;i++){const a=Math.max(0,i-half),b=Math.min(n,i+half+1);sg[i]=g[i]-(ps[b]-ps[a])/(b-a)*o.fac}
+ const runs=[],col=[];let state=sg[0]<0?1:0,last=0,pend=null;
+ for(let i=1;i<n;i++){
+  const pv=sg[i-1],cv=sg[i];
+  if((pv<0)!==(cv<0)){pend=i-1+pv/(pv-cv)}
+  if(pend!==null){const sgn=cv<0?1:0;if(Math.abs(cv)>hy&&sgn!==state){runs.push(pend-last);col.push(state);last=pend;state=sgn;pend=null}
+   else if(sgn===state&&Math.abs(cv)>hy)pend=null}}
+ runs.push(n-last);col.push(state);
+ runs.shift();col.shift();
+ const L=runs.length;if(L<59)return null;
+ const ok=(x,lo,hi)=>x>=lo&&x<=hi;
+ for(let i=0;i+59<=L;i++){
+  if(col[i]!==1)continue;
+  let tot=0;for(let k=0;k<59;k++)tot+=runs[i+k];
+  const m=tot/95;if(m<1)continue;
+  let good=true;
+  for(const k of[0,1,2,27,28,29,30,31,56,57,58])if(!ok(runs[i+k]/m,.45,2.0)){good=false;break}
+  if(!good)continue;
+  let first="",left="",right="",bad=false,par="";
+  for(let k=0;k<6&&!bad;k++){const j=i+3+4*k,x=[0,1,2,3].map(q=>runs[j+q]/m);
+   let best=1e9,d=-1,t="";
+   for(let q=0;q<10;q++){for(const [tb,nm] of[[RT,"L"],[RG,"G"]]){let e=0;for(let z=0;z<4;z++)e+=(x[z]-tb[q][z])**2;if(e<best){best=e;d=q;t=nm}}}
+   if(best>o.cost){bad=true;break}left+=d;par+=t}
+  if(bad)continue;
+  for(let k=0;k<6&&!bad;k++){const j=i+32+4*k,x=[0,1,2,3].map(q=>runs[j+q]/m);
+   let best=1e9,d=-1;for(let q=0;q<10;q++){let e=0;for(let z=0;z<4;z++)e+=(x[z]-RR[q][z])**2;if(e<best){best=e;d=q}}
+   if(best>o.cost){bad=true;break}right+=d}
+  if(bad)continue;
+  const f=P.indexOf(par);if(f<0)continue;
+  const code=f+left+right;if(eanOk(code))return code;
+ }
+ return null}
+
+const EOS=[{win:24,fac:1.04,sm:0,cost:2.5,hy:.02},{win:12,fac:1.04,sm:0,cost:2.5,hy:.03},{win:24,fac:1.08,sm:0,cost:2.5,hy:.02}];
+function eanScan(g,W,H){
+ for(const o of EOS){
+  const step=Math.max(2,Math.round(H/48));
+  for(let y=step>>1;y<H;y+=step){const row=g.subarray(y*W,y*W+W);let r=eanDecodeLine(row,o)||eanDecodeLine(Uint8Array.from(row).reverse(),o);if(r)return r}
+  const sx=Math.max(2,Math.round(W/48));
+  for(let x=sx>>1;x<W;x+=sx){const col=new Uint8Array(H);for(let y=0;y<H;y++)col[y]=g[y*W+x];const r=eanDecodeLine(col,o)||eanDecodeLine(col.slice().reverse(),o);if(r)return r}
+ }
+ return null}
+function eanFromCanvas(c){
+ const W=c.width,H=c.height,d=c.getContext("2d").getImageData(0,0,W,H).data,g=new Uint8Array(W*H);
+ for(let i=0,j=0;i<g.length;i++,j+=4)g[i]=(d[j]*299+d[j+1]*587+d[j+2]*114)/1000;
+ return eanScan(g,W,H)}
 async function frameCode(v){
  if(!v.videoWidth)return null;
  const W=v.videoWidth,H=v.videoHeight,band=(scanTick++%2===0);
@@ -329,15 +386,17 @@ async function frameCode(v){
  const k=Math.min(1,1280/sw),c=document.createElement("canvas");c.width=Math.round(sw*k);c.height=Math.round(sh*k);
  c.getContext("2d").drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);
  if("BarcodeDetector" in window){try{const r=await new BarcodeDetector().detect(c);if(r.length)return r[0].rawValue}catch(e){}}
- if(typeof Html5Qrcode!=="undefined"){try{const b=await new Promise(r=>c.toBlob(r,"image/jpeg",.92));if(!scanQ)scanQ=new Html5Qrcode("scan_tmp",h5cfg());return await scanQ.scanFile(new File([b],"f.jpg",{type:"image/jpeg"}),false)}catch(e){}}
+ try{const r=eanFromCanvas(c);if(r)return r}catch(e){}
+ if(typeof Html5Qrcode!=="undefined"){try{const b=await new Promise(r=>c.toBlob(r,"image/jpeg",.92));if(!scanQ)scanQ=new Html5Qrcode("scan_tmp",h5cfg());return await Promise.race([scanQ.scanFile(new File([b],"f.jpg",{type:"image/jpeg"}),false),new Promise((_,j)=>setTimeout(()=>j(new Error("timeout")),1500))])}catch(e){}}
  return null}
 function scanLoop(){clearTimeout(scanTimer);if(!stream)return;
- scanTimer=setTimeout(async()=>{if(!stream)return;if(!scanBusy){scanBusy=true;try{const c=await frameCode($("scan_video"));if(c&&stream)onCode(c);else if(stream)$("scan_n").textContent=t("Scanning… {0} tries",++scanN)}catch(e){}scanBusy=false}scanLoop()},350)}
+ scanTimer=setTimeout(async()=>{if(!stream)return;if(!scanBusy){scanBusy=true;$("scan_n").textContent=t("Scanning… {0} tries",++scanN);try{const c=await frameCode($("scan_video"));if(c&&stream)onCode(c)}catch(e){}scanBusy=false}scanLoop()},350)}
 function stopStream(){clearTimeout(scanTimer);if(stream){stream.getTracks().forEach(x=>x.stop());stream=null}const v=$("scan_video");if(v)v.srcObject=null}
 async function closeScan(){$("scan_modal").style.display="none";stopStream()}
 async function shrink(f){try{const b=await createImageBitmap(f),k=Math.min(1,1280/Math.max(b.width,b.height)),c=document.createElement("canvas");c.width=Math.round(b.width*k);c.height=Math.round(b.height*k);c.getContext("2d").drawImage(b,0,0,c.width,c.height);return await new Promise(r=>c.toBlob(x=>r(new File([x],"scan.jpg",{type:"image/jpeg"})),"image/jpeg",.9))}catch(e){return f}}
 async function decodeFile(f){
  if("BarcodeDetector" in window){try{const r=await new BarcodeDetector().detect(await createImageBitmap(f));if(r.length)return r[0].rawValue}catch(e){}}
+ try{const bm=await createImageBitmap(f),k=Math.min(1,1600/Math.max(bm.width,bm.height)),c=document.createElement("canvas");c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);c.getContext("2d").drawImage(bm,0,0,c.width,c.height);const r=eanFromCanvas(c);if(r)return r}catch(e){}
  if(typeof Html5Qrcode!=="undefined"){try{const q=new Html5Qrcode("scan_tmp",h5cfg());let r;try{r=await q.scanFile(await shrink(f),false)}catch(_){r=await q.scanFile(f,false)}try{q.clear()}catch(e){}return r}catch(e){}}
  return null}
 $("scan_close").onclick=closeScan;
