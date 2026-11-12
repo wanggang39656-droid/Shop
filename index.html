@@ -140,8 +140,9 @@ const T=["0001101","0011001","0010011","0111101","0100011","0110001","0101111","
 const R=T.map(s=>[...s].map(c=>c^1).join(""));const G=R.map(s=>[...s].reverse().join(""));
 const P=["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
 const eanOk=c=>{if(!/^\d{13}$/.test(c))return false;let x=0;for(let i=0;i<12;i++)x+=(+c[i])*(i%2?3:1);return(10-x%10)%10===+c[12]};
-function eanSvg(c){if(!/^\d{13}$/.test(c))return"";const d=[...c].map(Number);let s="101";
- for(let i=1;i<7;i++)s+=(P[d[0]][i-1]==="L"?T:G)[d[i]];s+="01010";for(let i=7;i<13;i++)s+=R[d[i]];s+="101";
+function eanBits(c){if(!/^\d{13}$/.test(c))return"";const d=[...c].map(Number);let s="101";
+ for(let i=1;i<7;i++)s+=(P[d[0]][i-1]==="L"?T:G)[d[i]];s+="01010";for(let i=7;i<13;i++)s+=R[d[i]];s+="101";return s}
+function eanSvg(c){const s=eanBits(c);if(!s)return"";
  let r="";[...s].forEach((b,i)=>{if(b==="1")r+=`<rect x="${i}" y="0" width="1" height="${(i<3||i>91||(i>=45&&i<50))?100:92}"/>`});
  return`<svg viewBox="0 0 95 100" preserveAspectRatio="none">${r}</svg>`}
 const rl=s=>{const r=[];let c=1;for(let i=1;i<s.length;i++){if(s[i]===s[i-1])c++;else{r.push(c);c=1}}r.push(c);return r};
@@ -475,7 +476,7 @@ PG["prod-list"]=()=>{const ic=i=>{const im=imgOf(i);return im?`<img class="thumb
  {h:["库存","Stock"],f:i=>`<div class="pr">${L("货架","Shelf")} <b>${i.qs}</b> · ${L("仓库","WH")} <b>${i.qw}</b> ${tagS(i)} ${i.exp?tagE(i):""}</div>`},
  {h:["操作","Actions"],f:i=>`<button class="btn sm" data-go="prod-detail-${i.id}">${L("详情","Detail")}</button> <button class="btn sm" data-go="prod-edit-${i.id}">${L("编辑","Edit")}</button> <button class="btn sm red" data-act="prod-del" data-id="${i.id}">${L("删除","Del")}</button>`},
  {h:["条码","Barcode"],f:(i,t)=>bcMini(i,t)}],
- tool:`<button class="btn pri" data-go="prod-edit">＋ ${L("新增商品","Add")}</button>`},head(L("商品列表","Product list")))};
+ tool:`<button class="btn" data-act="prod-pdf">📄 ${L("导出 PDF","PDF")}</button><button class="btn pri" data-go="prod-edit">＋ ${L("新增商品","Add")}</button>`},head(L("商品列表","Product list")))};
 ACT["prod-del"]=(id,el)=>cf(el,()=>{items=items.filter(i=>String(i.id)!==String(id));batches=batches.filter(b=>String(b.pid)!==String(id));SAVE.items();SAVE.batches();render()});
 ACT["prod-label"]=id=>{items.forEach(i=>i.on=String(i.id)===String(id));SAVE.items();go("label-print")};
 PG["prod-detail"]=id=>{const i=byId(items,id);if(!i){main(`<div class="empty">${L("商品不存在","Not found")}</div>`);return}
@@ -516,22 +517,61 @@ ACT["prod-save"]=id=>{const o={brand:V("brand"),d1:V("d1"),d2:V("d2"),size:V("si
  if(i){Object.assign(i,o);if(imgBuf)i.img=imgBuf}
  else{const qs=Math.max(0,Math.round(+V("qs")||0)),qw=Math.max(0,Math.round(+V("qw")||0));i={id:uid(),...o,qs,qw,qty:qs+qw,exp:V("exp0"),img:imgBuf||"",on:true,counted:null};items.push(i);norm();if(qs+qw>0){logMove(i,"adjust",qs,qw,L("新增商品(初始库存)","New product (initial stock)"));SAVE.moves()}SAVE.batches()}
  SAVE.items();toast(o.code&&!eanOk(o.code)?L("已保存(条码校验位可能有误)","Saved (check digit looks wrong)"):L("已保存","Saved"));go("prod-detail-"+i.id)};
-/* products import/export */
-PG["prod-io"]=()=>main(head(L("批量导入导出","Bulk import / export"))+`<div class="card"><h3>${L("导出","Export")}</h3><p class="muted">${L("导出全部商品为 Excel,含分类、供应商、成本、库存。","Export all products to Excel.")}</p><div class="row"><button class="btn pri" data-act="io-exp">⬇ ${L("导出商品","Export products")}</button><button class="btn" data-act="io-tpl">${L("下载导入模板","Template")}</button></div></div>
- <div class="card"><h3>${L("导入","Import")}</h3><p class="muted">${L("按条码匹配:已有商品只更新资料(库存和到期日请在库存管理按批次维护),新增商品的库存和到期日会建成“初始库存”批次;分类和供应商名称不存在会自动创建。","Matched by barcode; new categories/suppliers are created automatically.")}</p><input type="file" id="io_file" accept=".xlsx,.xls,.csv" class="in"><div id="io_msg" class="muted" style="margin-top:8px"></div></div>`);
+/* products import/export (Excel, or ZIP package = Excel + images) */
+PG["prod-io"]=()=>main(head(L("批量导入导出","Bulk import / export"))+`<div class="card"><h3>${L("导出","Export")}</h3><p class="muted">${L("Excel 文件本身放不了图片,所以“商品包”是一个 ZIP:里面有 products.xlsx(含图片文件名那一列)和 images 文件夹(每个商品一张图)。导入时选这个 ZIP 就能把图片一起带回来。","An Excel file cannot hold pictures, so the package is a ZIP with products.xlsx plus an images folder. Import the ZIP to restore the pictures too.")}</p><div class="row"><button class="btn pri" data-act="io-zip">📦 ${L("导出商品包(Excel + 图片)","Export package (Excel + images)")}</button><button class="btn" data-act="io-exp">${L("仅导出 Excel","Excel only")}</button><button class="btn" data-act="io-tpl">${L("下载导入模板","Template")}</button></div></div>
+ <div class="card"><h3>${L("导入","Import")}</h3><p class="muted">${L("支持 .zip(商品包)、.xlsx、.xls、.csv。按条码匹配(没有条码时按 SKU):已有商品更新资料和图片(库存和到期日请在库存管理按批次维护),新增商品的库存和到期日会建成“初始库存”批次;分类和供应商名称不存在会自动创建。Excel 里“Image”列写图片文件名,ZIP 里放对应图片;没有这一列时,也会按 SKU 或条码命名的图片文件自动对应。","Supports .zip package, .xlsx, .xls, .csv. Matched by barcode (or SKU). Pictures are matched by the Image column, or by files named after the SKU/barcode.")}</p><input type="file" id="io_file" accept=".xlsx,.xls,.csv,.zip" class="in"><div id="io_msg" class="muted" style="margin-top:8px"></div></div>`);
 const IOH=["Brand","Description","Variant","Size","Barcode","SKU","Category","Supplier","Member Price","Non-member Price","Cost","Shelf Stock","Warehouse Stock","Min Stock","Box Size","Expiry Date"];
 const xd=v=>typeof v==="number"?new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10):String(v||"").trim().slice(0,10);
-ACT["io-exp"]=()=>outXlsx(items.map(i=>[i.brand,i.d1,i.d2,i.size,i.code,i.sku,nm(cats,i.cat),nm(sups,i.sup),i.mp,i.np,i.cost,i.qs,i.qw,i.min,i.box,i.exp]),"products.xlsx",IOH);
+const ioRow=i=>[i.brand,i.d1,i.d2,i.size,i.code,i.sku,nm(cats,i.cat),nm(sups,i.sup),i.mp,i.np,i.cost,i.qs,i.qw,i.min,i.box,i.exp];
+ACT["io-exp"]=()=>outXlsx(items.map(ioRow),"products.xlsx",IOH);
 ACT["io-tpl"]=()=>outXlsx([["PARACHUTE","100% PURE COCONUT OIL","","175 mL","8901088747356","SKU00001","护发用品","ABC Trading",2.85,3.00,2.1,12,36,6,24,"2027-06-30"]],"products-template.xlsx",IOH);
-document.addEventListener("change",async e=>{if(e.target.id!=="io_file")return;const f=e.target.files[0];if(!f)return;const m=$("io_msg");
- try{if(typeof XLSX==="undefined")throw new Error("lib");const wb=XLSX.read(await f.arrayBuffer(),{type:"array"}),r=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});let add=0,upd=0;
+/* --- minimal ZIP writer/reader --- */
+function crc32(u){let t=crc32.t;if(!t){t=crc32.t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}let r=0xFFFFFFFF;for(let i=0;i<u.length;i++)r=t[(r^u[i])&255]^(r>>>8);return(r^0xFFFFFFFF)>>>0}
+function makeZip(files){const enc=new TextEncoder(),out=[],cd=[];let off=0;
+ files.forEach(f=>{const nm_=enc.encode(f.name),crc=crc32(f.data),sz=f.data.length;
+  const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(12,0x21,true);lh.setUint32(14,crc,true);lh.setUint32(18,sz,true);lh.setUint32(22,sz,true);lh.setUint16(26,nm_.length,true);
+  out.push(new Uint8Array(lh.buffer),nm_,f.data);
+  const ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(14,0x21,true);ch.setUint32(16,crc,true);ch.setUint32(20,sz,true);ch.setUint32(24,sz,true);ch.setUint16(28,nm_.length,true);ch.setUint32(42,off,true);
+  cd.push(new Uint8Array(ch.buffer),nm_);off+=30+nm_.length+sz});
+ const cl=cd.reduce((a,u)=>a+u.length,0),e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cl,true);e.setUint32(16,off,true);
+ const all=[...out,...cd,new Uint8Array(e.buffer)],n=all.reduce((a,u)=>a+u.length,0),z=new Uint8Array(n);let o=0;all.forEach(u=>{z.set(u,o);o+=u.length});return z}
+async function readZip(buf){const u=new Uint8Array(buf),dv=new DataView(buf);let p=u.length-22;while(p>=0&&dv.getUint32(p,true)!==0x06054b50)p--;if(p<0)throw new Error("zip");
+ const n=dv.getUint16(p+10,true);let q=dv.getUint32(p+16,true);const dec=new TextDecoder(),ents=[];
+ for(let k=0;k<n;k++){if(dv.getUint32(q,true)!==0x02014b50)break;const meth=dv.getUint16(q+10,true),cs=dv.getUint32(q+20,true),nl=dv.getUint16(q+28,true),el=dv.getUint16(q+30,true),cm=dv.getUint16(q+32,true),lo=dv.getUint32(q+42,true),name=dec.decode(u.subarray(q+46,q+46+nl));q+=46+nl+el+cm;
+  if(name.endsWith("/"))continue;const ln=dv.getUint16(lo+26,true),le=dv.getUint16(lo+28,true),raw=u.subarray(lo+30+ln+le,lo+30+ln+le+cs);let data;
+  if(meth===0)data=raw;else if(meth===8){if(typeof DecompressionStream==="undefined")throw new Error("nodec");data=new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer())}else continue;
+  ents.push({name,data})}
+ return ents}
+const b64u8=b=>{const s=atob(b),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a};
+async function imgFromBytes(u8){const url=URL.createObjectURL(new Blob([u8])),im=await new Promise(r=>{const m=new Image();m.onload=()=>r(m);m.onerror=()=>r(null);m.src=url});URL.revokeObjectURL(url);if(!im)return"";
+ const k=Math.min(1,600/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.85)}
+ACT["io-zip"]=async()=>{if(typeof XLSX==="undefined"){toast(L("Excel 组件未加载,请联网后重试","Excel library not loaded"));return}
+ toast(L("正在打包…","Packing…"));const files=[],used={};let ni=0;
+ const rows=items.map(i=>{let fn="";const src=imgOf(i),m=src&&src.match(/^data:image\/(\w+);base64,(.*)$/);
+  if(m){const ext=m[1]==="jpeg"?"jpg":m[1];const base=((i.sku||i.code||String(i.id)).replace(/[^A-Za-z0-9_-]/g,"_"))||"item";let n=base,k=1;while(used[n.toLowerCase()])n=base+"_"+(++k);used[n.toLowerCase()]=1;fn="images/"+n+"."+ext;files.push({name:fn,data:b64u8(m[2])});ni++}
+  return[...ioRow(i),fn]});
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([IOH.concat(["Image"]),...rows]),"Products");
+ files.unshift({name:"products.xlsx",data:new Uint8Array(XLSX.write(wb,{type:"array",bookType:"xlsx"}))});
+ try{await saveFile("products-pack-"+today()+".zip",makeZip(files),"application/zip");toast(L("已导出商品包("+items.length+" 个商品,"+ni+" 张图片)","Exported "+items.length+" products, "+ni+" pictures"))}catch(e){toast(e&&(e.code==="declined"||e.name==="AbortError")?L("已取消","Cancelled"):L("导出失败","Export failed"))}};
+document.addEventListener("change",async e=>{if(e.target.id!=="io_file")return;const f=e.target.files[0];if(!f)return;const m=$("io_msg");m.textContent=L("正在读取…","Reading…");
+ try{if(typeof XLSX==="undefined")throw new Error("lib");
+  let buf=await f.arrayBuffer(),imgs=null;
+  if(/\.zip$/i.test(f.name)){const ents=await readZip(buf),x=ents.find(z=>/\.(xlsx|xls|csv)$/i.test(z.name)&&!/__MACOSX/i.test(z.name)&&!z.name.split("/").pop().startsWith("."));if(!x)throw new Error("noxlsx");
+   buf=x.data.buffer.slice(x.data.byteOffset,x.data.byteOffset+x.data.byteLength);imgs={};ents.forEach(z=>{if(/\.(jpe?g|png|webp|gif|bmp)$/i.test(z.name)&&!/__MACOSX/i.test(z.name)){const l=z.name.toLowerCase(),base=l.split("/").pop();imgs[l]=z.data;imgs[base]=z.data;imgs["~"+base.replace(/\.[^.]+$/,"")]=z.data}})}
+  const wb=XLSX.read(buf,{type:"array"}),r=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});let add=0,upd=0,pic=0;
   const g=(o,k)=>{const x=Object.keys(o).find(y=>y.trim().toLowerCase()===k.toLowerCase());return x===undefined?"":o[x]};
   const ens=(arr,name,mk)=>{name=String(name).trim();if(!name)return"";let x=arr.find(y=>y.name.toLowerCase()===name.toLowerCase());if(!x){x=mk(name);arr.push(x)}return x.id};
-  r.forEach(o=>{const code=String(g(o,"Barcode")).trim(),brand=String(g(o,"Brand")).trim();if(!brand&&!code)return;
+  for(const o of r){const code=String(g(o,"Barcode")).trim(),brand=String(g(o,"Brand")).trim();if(!brand&&!code)continue;
    const d={brand,d1:String(g(o,"Description")),d2:String(g(o,"Variant")),size:String(g(o,"Size")),code,sku:String(g(o,"SKU")).trim(),cat:ens(cats,g(o,"Category"),n=>({id:uid(),name:n,note:""})),sup:ens(sups,g(o,"Supplier"),n=>({id:uid(),name:n,contact:"",phone:"",email:"",addr:"",terms:"",notes:""})),mp:+g(o,"Member Price")||0,np:+g(o,"Non-member Price")||0,cost:+g(o,"Cost")||0,qs:Math.max(0,Math.round(+(g(o,"Shelf Stock")||g(o,"Stock"))||0)),qw:Math.max(0,Math.round(+g(o,"Warehouse Stock")||0)),box:Math.max(0,Math.round(+g(o,"Box Size")||0)),min:Math.max(0,Math.round(+g(o,"Min Stock")||0))};
-   const xe=xd(g(o,"Expiry Date"));if(xe)d.exp=xe;const ex=code&&items.find(i=>i.code===code);if(ex){Object.assign(ex,d);upd++}else{items.push({id:uid(),...d,unit:"",note:"",img:"",on:true,counted:null});add++}});
-  norm();SAVE.items();SAVE.cats();SAVE.sups();m.textContent=L(`导入完成:新增 ${add},更新 ${upd}`,`Imported: ${add} added, ${upd} updated`)}
- catch(err){m.textContent=L("无法读取文件,请使用模板;或 Excel 组件未加载","Cannot read file / library not loaded")}e.target.value=""});
+   const xe=xd(g(o,"Expiry Date"));if(xe)d.exp=xe;
+   const ex=(code&&items.find(i=>i.code===code))||(d.sku&&items.find(i=>i.sku&&i.sku===d.sku));
+   if(ex){if(!d.sku)delete d.sku;if(!d.code)delete d.code}
+   let bytes=null;if(imgs){const iv=String(g(o,"Image")).trim().toLowerCase();if(iv)bytes=imgs[iv]||imgs[iv.split("/").pop()];if(!bytes){const k1=d.sku&&imgs["~"+d.sku.toLowerCase()],k2=code&&imgs["~"+code.toLowerCase()];bytes=k1||k2||null}}
+   const img=bytes?await imgFromBytes(bytes):"";if(img)pic++;
+   if(ex){Object.assign(ex,d);if(img)ex.img=img;upd++}else{items.push({id:uid(),...d,unit:"",note:"",img,on:true,counted:null});add++}}
+  norm();SAVE.items();SAVE.cats();SAVE.sups();SAVE.batches();m.textContent=L(`导入完成:新增 ${add},更新 ${upd},图片 ${pic} 张`,`Imported: ${add} added, ${upd} updated, ${pic} pictures`)}
+ catch(err){m.textContent=err&&err.message==="nodec"?L("此浏览器不支持读取压缩过的 ZIP,请使用本系统导出的商品包","This browser cannot read compressed ZIPs"):err&&err.message==="noxlsx"?L("ZIP 里没有找到 Excel 文件","No Excel file in the ZIP"):L("无法读取文件,请使用模板;或 Excel 组件未加载","Cannot read file / library not loaded")}e.target.value=""});
+
 /* ===== labels ===== */
 let lblPg=0;
 const labelHtml=i=>{const im=imgOf(i);return`<div class="lb"><div class="hd">${esc(CFG.cn)}</div><div class="yl">${esc(CFG.tag)}</div><div class="shop">${esc(CFG.en)}</div>${im?`<img class="im" src="${im}" alt="">`:""}<div class="tx"><div class="br">${esc(i.brand)}</div><div class="d1">${esc(i.d1)}</div>${i.d2?`<div class="d2">${esc(i.d2)}</div>`:""}<div class="sz">${esc(i.size)}</div></div><div class="mp"><small>MEMBER PRICE</small><b>${esc(CFG.cur)}${i.mp.toFixed(2)}</b></div><div class="nm">NON-MEMBER PRICE<b>${esc(CFG.cur)}${i.np.toFixed(2)}</b></div><div class="bc">${eanSvg(i.code)}${esc(i.code)}</div></div>`};
@@ -803,6 +843,41 @@ function makePdf(jp){const enc=s=>new TextEncoder().encode(s),parts=[],offs=[];l
 async function savePoPdf(p){toast(L("正在生成 PDF…","Generating PDF…"));try{const b=await poPdf(p);await saveFile((p.no||"purchase-order")+".pdf",b,"application/pdf");toast(L("PDF 已生成","PDF ready"))}catch(e){toast(e&&(e.code==="declined"||e.name==="AbortError")?L("已取消","Cancelled"):L("生成失败","Failed"))}}
 ACT["po-pdf"]=id=>savePoPdf(byId(pos,id));
 ACT["po-pdf-draft"]=()=>savePoPdf(Object.assign({},poD,{sup:V("sup")||poD.sup,date:V("date")||poD.date,note:V("note")}));
+
+/* ===== product list PDF (honours current search / filters / tab) ===== */
+function prodFilterText(){const st=S["prod-list"]||{},parts=[];
+ if(st.q)parts.push(L("搜索 ","Search ")+"“"+st.q+"”"+(st.scope&&st.scope!=="all"?" ("+(pFields().find(f=>f.id===st.scope)||{}).z+")":""));
+ pFilters()().forEach(f=>{const v=(st.flt||{})[f.id];if(v){const o=f.opts().find(([ov])=>String(ov)===String(v));parts.push(L(f.z,f.e)+": "+(o?o[1]:v))}});
+ const tb=TABS["prod-list"]().find(t=>t.id===st.tab);if(tb&&tb.f)parts.push(L(tb.z,tb.e));
+ return parts.join("  ·  ")||L("全部商品","All products")}
+async function productsPdf(rows){
+ const W=1240,H=1754,M=60,RH=100,jp=[];let c,x,y,pn=0;
+ const T=(t,px,xx,yy,o)=>{o=o||{};x.font=(o.b?"bold ":"")+px+"px "+FONT;x.fillStyle=o.col||"#111";x.textAlign=o.al||"left";x.fillText(String(t),xx,yy)};
+ const wrap=(t,px,mw,mx)=>{x.font=px+"px "+FONT;const out=[];let ln="";for(const w of String(t).split(/(?<= )/)){if(x.measureText(ln+w).width<=mw){ln+=w;continue}if(ln){out.push(ln);ln=""}if(x.measureText(w).width<=mw){ln=w;continue}for(const ch of w){if(x.measureText(ln+ch).width>mw&&ln){out.push(ln);ln=ch}else ln+=ch}}if(ln)out.push(ln);return out.slice(0,mx||2)};
+ const fin=()=>{if(!c)return;x.textBaseline="top";T("- "+pn+" -",20,W/2,H-50,{col:"#888",al:"center"});const u=b64u8(c.toDataURL("image/jpeg",.9).split(",")[1]);jp.push({data:u,w:W,h:H})};
+ const np=()=>{fin();pn++;c=document.createElement("canvas");c.width=W;c.height=H;x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,W,H);x.textBaseline="top";y=M};
+ const X={img:M,name:M+96,bc:M+430,cat:M+665,price:M+850,stock:W-M};
+ const head=()=>{x.fillStyle="#1d2fa0";x.fillRect(M,y,W-2*M,46);[["商品",X.name],["条码",X.bc],["分类 / 供应商",X.cat],["价格",X.price]].forEach(([z,xx])=>T(z,22,xx,y+11,{col:"#fff",b:1}));T(L("库存","Stock"),22,X.stock-8,y+11,{col:"#fff",b:1,al:"right"});y+=54};
+ np();
+ if(CFG.shop)T(CFG.shop,26,M,y,{col:"#555"}),y+=36;
+ T(L("商品清单","Product list"),46,M,y,{b:1});T(today(),24,W-M,y+18,{al:"right",col:"#555"});y+=68;
+ wrap(L("筛选条件:","Filter: ")+prodFilterText(),24,W-2*M,2).forEach(t=>{T(t,24,M,y,{col:"#444"});y+=32});
+ T(L("共 "+rows.length+" 个商品","Total "+rows.length+" products"),24,M,y,{col:"#444"});y+=44;head();
+ for(const it of rows){
+  if(y+RH>H-M-30){np();head()}
+  x.strokeStyle="#ddd";x.beginPath();x.moveTo(M,y+RH);x.lineTo(W-M,y+RH);x.stroke();
+  const im=await loadImg(imgOf(it));if(im){const s=Math.min(80/im.width,80/im.height);x.drawImage(im,X.img+(80-im.width*s)/2,y+10+(80-im.height*s)/2,im.width*s,im.height*s)}
+  wrap(pname(it),24,X.bc-X.name-16,2).forEach((t,j)=>T(t,24,X.name,y+8+j*30,{b:j===0}));
+  if(it.sku)T("SKU "+it.sku,20,X.name,y+72,{col:"#666"});
+  const bits=eanBits(it.code);if(bits){const bw=200/bits.length*1,bx=X.bc,by=y+10;x.fillStyle="#000";for(let k=0;k<bits.length;k++)if(bits[k]==="1")x.fillRect(bx+k*bw*1.0,by,Math.max(bw,1.2),(k<3||k>91||(k>=45&&k<50))?50:44);T(it.code,20,bx,y+66,{col:"#444"})}
+  else if(it.code)T(it.code,20,X.bc,y+36,{col:"#444"});
+  T(nm(cats,it.cat)||"—",22,X.cat,y+14);T(nm(sups,it.sup)||"—",22,X.cat,y+48,{col:"#555"});
+  T(L("会员 ","Member ")+money(it.mp),22,X.price,y+14,{b:1});T(L("非会员 ","Non-mem ")+money(it.np),22,X.price,y+48,{col:"#555"});
+  T(L("货架 ","Shelf ")+it.qs,22,X.stock-8,y+14,{al:"right"});T(L("仓库 ","WH ")+it.qw,22,X.stock-8,y+48,{al:"right"});
+  const st=stat(it);if(st!=="ok")T(st==="out"?L("缺货","Out"):L("偏低","Low"),20,X.stock-8,y+76,{al:"right",col:st==="out"?"#a11":"#8a5200",b:1});y+=RH}
+ fin();return makePdf(jp)}
+ACT["prod-pdf"]=async()=>{const rows=LST["prod-list"]?LST["prod-list"].rows():items;if(!rows.length){toast(L("没有符合条件的商品","No matching products"));return}
+ toast(L("正在生成 PDF…","Generating PDF…"));try{const b=await productsPdf(rows);await saveFile("products-"+today()+".pdf",b,"application/pdf");toast(L("PDF 已生成("+rows.length+" 个商品)","PDF ready ("+rows.length+" products)"))}catch(e){toast(e&&(e.code==="declined"||e.name==="AbortError")?L("已取消","Cancelled"):L("生成失败","Failed"))}};
 /* ===== reports ===== */
 const REP={};
 function repPage(key,title,c){REP[key]=c.exp;mount(key,{data:c.data,hay:c.hay,fields:c.fields,filters:c.filters,tabs:c.tabs?c.tabs():null,cols:c.cols,tool:`<button class="btn pri" data-act="rep-exp" data-id="${key}">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(title))}
