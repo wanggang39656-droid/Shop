@@ -64,7 +64,8 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
  table.rt td::before{content:attr(data-label);color:var(--mut);font-size:12px;text-align:left;flex:none}
  td.num{text-align:right}td input.in{width:90px}
 }
-.lb{width:140mm;height:66mm;zoom:.67;background:#fff;color:#111;border:.3mm solid #444;border-radius:3mm;overflow:hidden;position:relative;font-family:Arial,sans-serif}
+.lbw{width:calc(140mm*var(--s,.67));height:calc(66mm*var(--s,.67));overflow:hidden;position:relative;flex:none}
+.lb{width:140mm;height:66mm;transform:scale(var(--s,.67));transform-origin:0 0;background:#fff;color:#111;border:.3mm solid #444;border-radius:3mm;overflow:hidden;position:relative;font-family:Arial,sans-serif}
 .lb .hd{background:#1d2fa0;color:#fff;text-align:center;font-size:6.2mm;font-weight:700;letter-spacing:4mm;height:9mm;line-height:9mm}
 .lb .yl{background:#ffe600;text-align:center;font-size:2.4mm;font-weight:700;height:3.6mm;line-height:3.6mm;color:#1d2fa0}
 .lb .shop{font-size:6mm;font-weight:700;color:#1d2fa0;margin-left:36mm;line-height:6.5mm;border-bottom:.3mm solid #1d2fa0}
@@ -116,8 +117,8 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 @media(min-width:701px){table.rt.cg td:first-child{min-width:200px}table.rt.cg td input.in{width:64px}table.rt.cg td select.in{max-width:104px}}
 .btn{white-space:nowrap}
 
-@media(max-width:1180px){.sheet{grid-template-columns:repeat(auto-fill,94mm)}}
-@media(max-width:480px){.sheet{grid-template-columns:1fr!important;justify-items:center}.sheet .lb{zoom:.6}}
+@media(max-width:1400px){.sheet{grid-template-columns:repeat(auto-fill,94mm)}}
+@media(max-width:480px){.sheet{grid-template-columns:1fr!important;justify-items:center}.sheet{--s:.6}}
 .pc{display:flex;gap:10px;align-items:center;min-width:0;text-align:left}.pc .thumb,.pc .noimg{flex:none;width:46px;height:46px}.pt{min-width:0}
 </style></head><body>
 <div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button></div><div class="content" id="main"></div></div></div>
@@ -607,7 +608,7 @@ document.addEventListener("change",async e=>{if(e.target.id!=="io_file")return;c
 
 /* ===== labels ===== */
 let lblPg=0;
-const labelHtml=i=>{const im=imgOf(i);return`<div class="lb"><div class="hd">${esc(CFG.cn)}</div><div class="yl">${esc(CFG.tag)}</div><div class="shop">${esc(CFG.en)}</div>${im?`<img class="im" src="${im}" alt="">`:""}<div class="tx"><div class="br">${esc(i.brand)}</div><div class="d1">${esc(i.d1)}</div>${i.d2?`<div class="d2">${esc(i.d2)}</div>`:""}<div class="sz">${esc(i.size)}</div></div><div class="mp"><small>MEMBER PRICE</small><b>${esc(CFG.cur)}${i.mp.toFixed(2)}</b></div><div class="nm">NON-MEMBER PRICE<b>${esc(CFG.cur)}${i.np.toFixed(2)}</b></div><div class="bc">${eanSvg(i.code)}${esc(i.code)}</div></div>`};
+const labelHtml=i=>{const im=imgOf(i);return`<div class="lbw"><div class="lb"><div class="hd">${esc(CFG.cn)}</div><div class="yl">${esc(CFG.tag)}</div><div class="shop">${esc(CFG.en)}</div>${im?`<img class="im" src="${im}" alt="">`:""}<div class="tx"><div class="br">${esc(i.brand)}</div><div class="d1">${esc(i.d1)}</div>${i.d2?`<div class="d2">${esc(i.d2)}</div>`:""}<div class="sz">${esc(i.size)}</div></div><div class="mp"><small>MEMBER PRICE</small><b>${esc(CFG.cur)}${i.mp.toFixed(2)}</b></div><div class="nm">NON-MEMBER PRICE<b>${esc(CFG.cur)}${i.np.toFixed(2)}</b></div><div class="bc">${eanSvg(i.code)}${esc(i.code)}</div></div></div>`};
 const labelList=()=>items.filter(i=>i.on).flatMap(i=>Array.from({length:Math.max(1,i.copies||1)},()=>i));
 function paintPrev(){const all=labelList(),sel=items.filter(i=>i.on),pages=Math.max(1,Math.ceil(all.length/12));if(lblPg>=pages)lblPg=pages-1;if(lblPg<0)lblPg=0;
  const sh=$("sheet");if(!sh)return;const part=all.slice(lblPg*12,lblPg*12+12);sh.innerHTML=part.map(labelHtml).join("")||`<div class="empty">${L("请在上方勾选要打印的商品","Tick products above")}</div>`;
@@ -621,7 +622,7 @@ ACT["lbl-none"]=()=>{LST["label-print"].rows().forEach(i=>i.on=false);SAVE.items
 ACT["prev-pg"]=d=>{lblPg+=+d;paintPrev()};
 ACT["lbl-print"]=()=>{const sel=labelList();if(!sel.length){toast(L("请先勾选商品","Tick products first"));return}
  const w=window.open("","_blank");if(!w){toast(L("请允许本页弹窗后再试","Allow pop-ups and retry"));return}
- w.document.write('<!doctype html><meta charset="utf-8"><title>Labels</title><style>'+$("appcss").textContent+'body{background:#fff}.sheet .lb{zoom:.67!important}.sheet{grid-template-columns:repeat(3,94mm)!important;gap:2mm;display:grid;justify-content:center}.lb{break-inside:avoid;height:66mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4 landscape;margin:5mm}</style><div class="sheet">'+sel.map(labelHtml).join("")+'</div>');w.document.close();setTimeout(()=>w.print(),600)};
+ w.document.write('<!doctype html><meta charset="utf-8"><title>Labels</title><style>'+$("appcss").textContent+'body{background:#fff}.sheet{--s:.67!important}.lbw{break-inside:avoid}.sheet{grid-template-columns:repeat(3,94mm)!important;gap:2mm;display:grid;justify-content:center}.lb{break-inside:avoid;height:66mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4 landscape;margin:5mm}</style><div class="sheet">'+sel.map(labelHtml).join("")+'</div>');w.document.close();setTimeout(()=>w.print(),600)};
 PG["label-set"]=()=>{main(head(L("价签设置","Label settings"))+`<div class="card"><div class="fg">${F("cn","抬头文字","Header text",CFG.cn)}${F("en","店名","Shop name",CFG.en)}${F("tag","标语","Tagline",CFG.tag,{w:"full"})}${F("cur","货币符号","Currency symbol",CFG.cur)}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="lbl-save">${L("保存","Save")}</button></div></div><div class="card"><h3>${L("效果预览","Preview")}</h3><div class="sheetwrap"><div class="sheet" style="grid-template-columns:94mm">${items[0]?labelHtml(items[0]):""}</div></div></div>`)};
 ACT["lbl-save"]=()=>{CFG.cn=V("cn");CFG.en=V("en");CFG.tag=V("tag");CFG.cur=V("cur")||"$";SAVE.cfg();toast(L("已保存","Saved"));render()};
 /* ===== suppliers ===== */
