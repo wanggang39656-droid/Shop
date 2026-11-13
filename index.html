@@ -140,15 +140,25 @@ const T=["0001101","0011001","0010011","0111101","0100011","0110001","0101111","
 const R=T.map(s=>[...s].map(c=>c^1).join(""));const G=R.map(s=>[...s].reverse().join(""));
 const P=["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
 const eanOk=c=>{if(!/^\d{13}$/.test(c))return false;let x=0;for(let i=0;i<12;i++)x+=(+c[i])*(i%2?3:1);return(10-x%10)%10===+c[12]};
-function eanBits(c){if(!/^\d{13}$/.test(c))return"";const d=[...c].map(Number);let s="101";
- for(let i=1;i<7;i++)s+=(P[d[0]][i-1]==="L"?T:G)[d[i]];s+="01010";for(let i=7;i<13;i++)s+=R[d[i]];s+="101";return s}
-function eanSvg(c){const s=eanBits(c);if(!s)return"";
- let r="";[...s].forEach((b,i)=>{if(b==="1")r+=`<rect x="${i}" y="0" width="1" height="${(i<3||i>91||(i>=45&&i<50))?100:92}"/>`});
- return`<svg viewBox="0 0 95 100" preserveAspectRatio="none">${r}</svg>`}
+const C128P=["212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213", "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132", "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211", "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313", "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331", "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111", "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214", "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111", "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141", "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141", "114131", "311141", "411131", "211412", "211214", "211232", "2331112"];
+const ean13Bits=c=>{const d=[...c].map(Number);let s="101";for(let i=1;i<7;i++)s+=(P[d[0]][i-1]==="L"?T:G)[d[i]];s+="01010";for(let i=7;i<13;i++)s+=R[d[i]];return s+"101"};
+const ean8Ok=c=>{if(!/^\d{8}$/.test(c))return false;const d=[...c].map(Number);const s=3*(d[0]+d[2]+d[4]+d[6])+d[1]+d[3]+d[5];return(10-s%10)%10===d[7]};
+const ean8Bits=c=>{const d=[...c].map(Number);let s="101";for(let i=0;i<4;i++)s+=T[d[i]];s+="01010";for(let i=4;i<8;i++)s+=R[d[i]];return s+"101"};
+function c128Codes(t){const codes=[];if(/^\d{4,}$/.test(t)&&t.length%2===0){codes.push(105);for(let i=0;i<t.length;i+=2)codes.push(+t.slice(i,i+2))}else{codes.push(104);for(const ch of t)codes.push(ch.charCodeAt(0)-32)}let s=codes[0];for(let i=1;i<codes.length;i++)s+=codes[i]*i;codes.push(s%103,106);return codes}
+function c128Bits(t){let b="";c128Codes(t).forEach(c=>{let bar=1;for(const w of C128P[c]){b+=(bar?"1":"0").repeat(+w);bar^=1}});return b}
+/* any barcode text -> bars: EAN-13 / UPC-A / EAN-8 when the digits are a valid retail code, otherwise Code 128 (self-made codes) */
+function barInfo(c){c=String(c==null?"":c);if(!/^[\x21-\x7E]{1,48}$/.test(c))return null;
+ if(/^\d{13}$/.test(c))return{t:"EAN13",bits:ean13Bits(c),q:0,long:k=>k<3||k>91||(k>=45&&k<50)};
+ if(/^\d{12}$/.test(c)&&eanOk("0"+c))return{t:"UPCA",bits:ean13Bits("0"+c),q:0,long:k=>k<3||k>91||(k>=45&&k<50)};
+ if(/^\d{8}$/.test(c)&&ean8Ok(c))return{t:"EAN8",bits:ean8Bits(c),q:0,long:k=>k<3||k>63||(k>=31&&k<36)};
+ return{t:"C128",bits:c128Bits(c),q:10,long:()=>true}}
+function eanSvg(c){const b=barInfo(c);if(!b)return"";const n=b.bits.length+2*b.q;let r="";
+ for(let i=0;i<b.bits.length;i++)if(b.bits[i]==="1")r+=`<rect x="${i+b.q}" y="0" width="1" height="${b.long(i)?100:92}"/>`;
+ return`<svg viewBox="0 0 ${n} 100" preserveAspectRatio="none">${r}</svg>`}
 const rl=s=>{const r=[];let c=1;for(let i=1;i<s.length;i++){if(s[i]===s[i-1])c++;else{r.push(c);c=1}}r.push(c);return r};
 const RT=T.map(rl),RR=R.map(rl),RG=G.map(rl);
 let EO={win:12,fac:1.04,sm:0,cost:2.5,hy:.06};
-function eanDecodeLine(g,o){o=o||EO;
+function lineRuns(g,o){o=o||EO;
  const n=g.length;if(n<120)return null;
  if(o.sm>0){const t=new Float32Array(n);for(let i=0;i<n;i++){let a=0,c2=0;for(let q=-o.sm;q<=o.sm;q++){const j=i+q;if(j>=0&&j<n){a+=g[j];c2++}}t[i]=a/c2}g=t}
  const w=(Math.max(31,(n/o.win)|0))|1,half=w>>1,ps=new Float64Array(n+1);
@@ -165,7 +175,8 @@ function eanDecodeLine(g,o){o=o||EO;
    else if(sgn===state&&Math.abs(cv)>hy)pend=null}}
  runs.push(n-last);col.push(state);
  runs.shift();col.shift();
- const L=runs.length;if(L<59)return null;
+ return{runs,col}}
+function eanFromRuns(r,o){const runs=r.runs,col=r.col,L=runs.length;if(L<59)return null;
  const ok=(x,lo,hi)=>x>=lo&&x<=hi;
  for(let i=0;i+59<=L;i++){
   if(col[i]!==1)continue;
@@ -189,13 +200,33 @@ function eanDecodeLine(g,o){o=o||EO;
  }
  return null}
 
+
+const C128W=C128P.map(p=>[...p].map(Number));
+function c128FromRuns(r,o){const runs=r.runs,col=r.col,L=runs.length;if(L<6*3+7)return null;const cost=Math.min(o.cost,1.6);
+ const sym=(j,m)=>{let tot=0;for(let q=0;q<6;q++)tot+=runs[j+q];const mm=m||tot/11;let best=1e9,bi=-1;for(let c=0;c<106;c++){const w=C128W[c];let e=0;for(let q=0;q<6;q++)e+=(runs[j+q]/mm-w[q])**2;if(e<best){best=e;bi=c}}return best<=cost?bi:-1};
+ for(let i=0;i+6*3+7<=L;i++){if(col[i]!==1)continue;let tot=0;for(let q=0;q<6;q++)tot+=runs[i+q];const m=tot/11;if(m<1)continue;
+  const st=sym(i,m);if(st<103||st>105)continue;
+  let j=i+6;const codes=[st];let ok=false;
+  while(j+7<=L&&codes.length<80){let t7=0;for(let q=0;q<7;q++)t7+=runs[j+q];const m7=t7/13;let e=0;for(let q=0;q<7;q++)e+=(runs[j+q]/m7-C128W[106][q])**2;
+   if(e<=cost&&codes.length>=3){ok=true;break}
+   if(j+6>L)break;const c=sym(j,m);if(c<0)break;codes.push(c);j+=6}
+  if(!ok)continue;
+  const chk=codes.pop();let s=codes[0];for(let q=1;q<codes.length;q++)s+=codes[q]*q;if(s%103!==chk)continue;
+  let set=codes[0]===105?"C":codes[0]===103?"A":"B",out="";
+  for(let q=1;q<codes.length;q++){const c=codes[q];
+   if(set==="C"){if(c<100)out+=String(c).padStart(2,"0");else if(c===100)set="B";else if(c===101)set="A"}
+   else if(c===99)set="C";else if(c===100&&set==="A")set="B";else if(c===101&&set==="B")set="A";else if(c<96)out+=String.fromCharCode(c<64||set==="B"?c+32:c-64)}
+  if(out)return out}
+ return null}
+function decodeLine(g,o){const r=lineRuns(g,o);if(!r)return null;return eanFromRuns(r,o)||c128FromRuns(r,o)}
+function eanDecodeLine(g,o){const r=lineRuns(g,o);return r?eanFromRuns(r,o||EO):null}
 const EOS=[{win:24,fac:1.04,sm:0,cost:2.5,hy:.02},{win:12,fac:1.04,sm:0,cost:2.5,hy:.03},{win:24,fac:1.08,sm:0,cost:2.5,hy:.02}];
 function eanScan(g,W,H){
  for(const o of EOS){
   const step=Math.max(2,Math.round(H/48));
-  for(let y=step>>1;y<H;y+=step){const row=g.subarray(y*W,y*W+W);let r=eanDecodeLine(row,o)||eanDecodeLine(Uint8Array.from(row).reverse(),o);if(r)return r}
+  for(let y=step>>1;y<H;y+=step){const row=g.subarray(y*W,y*W+W);let r=decodeLine(row,o)||decodeLine(Uint8Array.from(row).reverse(),o);if(r)return r}
   const sx=Math.max(2,Math.round(W/48));
-  for(let x=sx>>1;x<W;x+=sx){const col=new Uint8Array(H);for(let y=0;y<H;y++)col[y]=g[y*W+x];const r=eanDecodeLine(col,o)||eanDecodeLine(col.slice().reverse(),o);if(r)return r}
+  for(let x=sx>>1;x<W;x+=sx){const col=new Uint8Array(H);for(let y=0;y<H;y++)col[y]=g[y*W+x];const r=decodeLine(col,o)||decodeLine(col.slice().reverse(),o);if(r)return r}
  }
  return null}
 function eanFromCanvas(c){
@@ -351,7 +382,7 @@ function openDrawer(){$("side").classList.add("open");$("mask").classList.add("s
 function closeDrawer(){$("side").classList.remove("open");$("mask").classList.remove("show")}
 ACT["lst-reset"]=k=>{const st=S[k];st.q="";st.scope="all";st.flt={};st.pg=1;render()};
 ACT.bczoom=id=>{const i=byId(items,id);if(!i)return;const z=$("zoom");z.innerHTML=`<div class="zbox"><div class="zt">${esc(pname(i))}</div><div class="zbc">${eanSvg(i.code)}</div><div class="zc">${esc(i.code)}</div><div class="muted">${L("点击任意处关闭","Tap anywhere to close")}</div></div>`;z.style.display="flex"};
-const bcMini=(i,tk)=>/^\d{13}$/.test(i.code)?`<div class="bcm" data-act="bczoom" data-id="${i.id}" title="${L("点击放大","Tap to enlarge")}">${eanSvg(i.code)}</div><div class="bcn">${hl(i.code,tk)}</div>`:`<span class="muted">${esc(i.code)||"—"}</span>`;
+const bcMini=(i,tk)=>barInfo(i.code)?`<div class="bcm" data-act="bczoom" data-id="${i.id}" title="${L("点击放大","Tap to enlarge")}">${eanSvg(i.code)}</div><div class="bcn">${hl(i.code,tk)}</div>`:`<span class="muted">${esc(i.code)||"—"}</span>`;
 ACT.imgzoom=id=>{const i=byId(items,id);if(!i)return;const im=imgOf(i);if(!im)return;const z=$("zoom");z.innerHTML=`<div class="zbox"><img src="${im}" alt="" style="max-width:86vw;max-height:68vh;display:block;margin:0 auto"><div class="zt" style="margin-top:10px">${esc(pname(i))}</div><div class="muted">${L("点击任意处关闭","Tap anywhere to close")}</div></div>`;z.style.display="flex"};
 ACT.drawer=openDrawer;ACT.burger=()=>$("side").classList.contains("open")?closeDrawer():openDrawer();
 ACT.lang=()=>{LANG=LANG==="zh"?"en":"zh";try{localStorage.setItem("lang1",LANG)}catch(e){}buildModal();render()};
@@ -362,7 +393,8 @@ function buildModal(){$("scan_modal").innerHTML=`<div class="card" style="width:
  $("scan_manual").onkeydown=e=>{if(e.key==="Enter")ACT["scan-ok"]()}}
 let stream=null,scanTimer=null,scanBusy=false,scanQ=null,scanN=0,scanTick=0,scanCb=null,scanCont=false,lastC="",lastT=0;
 const scanSt=m=>{const e=$("scan_st");if(e)e.textContent=m};
-const normCode=x=>{x=String(x).trim();return /^\d{12}$/.test(x)?"0"+x:x};
+const normCode=x=>String(x).trim();
+const findByCode=c=>items.find(x=>x.code===c)||(/^\d{12}$/.test(c)&&items.find(x=>x.code==="0"+c))||(/^0\d{12}$/.test(c)&&items.find(x=>x.code===c.slice(1)))||null;
 function onCode(raw){const c=normCode(raw),now=Date.now();if(c===lastC&&now-lastT<2000)return;lastC=c;lastT=now;try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}scanCb(c);if(!scanCont)closeScan()}
 function h5cfg(){const F=window.Html5QrcodeSupportedFormats,c={verbose:false};if(F)c.formatsToSupport=[F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.CODE_128,F.CODE_39];return c}
 async function openScan(cb,cont){scanCb=cb;scanCont=!!cont;lastC="";scanN=0;$("scan_modal").style.display="flex";scanSt(L("正在启动摄像头…","Starting camera…"));$("scan_n").textContent="";
@@ -499,24 +531,25 @@ let imgBuf=null;
 PG["prod-edit"]=id=>{imgBuf=null;const i=id?byId(items,id):null;if(id&&!i){main(`<div class="empty">${L("商品不存在","Not found")}</div>`);return}
  const v=i||{brand:"",d1:"",d2:"",size:"",code:"",cat:"",unit:"",sup:"",mp:"",np:"",cost:"",sku:"",qs:0,qw:0,box:"",ls:"",lw:"",min:0,note:"",shelf:"",warn:""},im=i?imgOf(i):"";
  main(head(i?L("编辑商品","Edit product"):L("新增商品","Add product"),`${bk}${i?"prod-detail-"+i.id:"prod-list"}">← ${L("返回","Back")}</button>`)+`<div class="card"><div class="fg">${F("brand","品牌 / 名称","Brand / name",v.brand,{req:1})}${F("d1","规格描述","Description",v.d1)}${F("d2","系列 / 变体","Variant",v.d2)}${F("size","容量","Size",v.size)}
- <label class="fld"><span>${L("条码(13位)","Barcode (13 digits)")}</span><div class="row" style="flex-wrap:nowrap"><input class="in" id="f_code" maxlength="13" inputmode="numeric" value="${esc(v.code)}"><button class="btn" data-act="scan-code">📷</button></div></label>
+ <label class="fld"><span>${L("条码(EAN-13 或自编码)","Barcode (EAN-13 or self-made)")}</span><div class="row" style="flex-wrap:nowrap"><input class="in" id="f_code" maxlength="48" value="${esc(v.code)}"><button class="btn" data-act="scan-code">📷</button><button class="btn" data-act="code-gen">${L("生成","Auto")}</button></div></label><div class="fld full" style="margin-top:-4px"><span class="muted">${L("自编码可以用字母、数字和 - . / 等符号(最多 48 位),系统会自动画成 Code128 条码。想让所有扫码枪都读得出,建议点“生成”,得到一个 13 位店内码(以 2 开头,带校验位)。","Self-made codes may use letters, digits and - . / (max 48) and are drawn as Code 128. Tap Auto for a 13-digit in-store EAN-13 code that every scanner reads.")}</span></div>
  ${skuField(v)}${F("cat","分类","Category",v.cat,{type:"select",opts:catOpts()})}${F("unit","单位","Unit",v.unit)}${F("sup","供应商","Supplier",v.sup,{type:"select",opts:supOpts()})}${F("mp","会员价","Member price",v.mp,{type:"number",step:"0.05"})}${F("np","非会员价","Non-member price",v.np,{type:"number",step:"0.05"})}${F("cost","成本价","Cost",v.cost,{type:"number",step:"0.01"})}${i?"":F("qs","初始货架库存","Initial shelf stock",0,{type:"number"})+F("qw","初始仓库库存","Initial warehouse stock",0,{type:"number"})+F("exp0","初始批次到期日期","Initial batch expiry","",{type:"date"})}${F("ls","货架位置","Shelf location",v.ls,{type:"select",opts:locOpts("shelf")})}${F("lw","仓库位置","Warehouse location",v.lw,{type:"select",opts:locOpts("wh")})}${F("box","一箱多少个","Pieces per box",v.box||"",{type:"number"})}${F("min","最低库存","Min stock",v.min,{type:"number"})}${F("shelf","标准保质期(天,收货时自动算到期日)","Standard shelf life (days)",v.shelf||"",{type:"number"})}${F("warn","临期提醒(提前天数,默认"+CFG.expWarn+")","Warn days before expiry (default "+CFG.expWarn+")",v.warn||"",{type:"number"})}${i?`<div class="fld full"><span class="muted">${L("当前库存:货架 "+i.qs+" · 仓库 "+i.qw+"。库存数量和每次来货的保质期,请到“库存管理”按批次维护。","Stock: shelf "+i.qs+" · warehouse "+i.qw+". Maintain quantities and per-delivery expiry dates under Inventory.")}</span> <a class="lnk" data-act="op-batch" data-id="${i.id}">${L("查看批次 ›","Batches ›")}</a></div>`:""}${F("note","备注","Note",v.note,{w:"full",type:"textarea"})}
  <label class="fld full"><span>${L("商品图片","Image")}</span><input type="file" accept="image/*" id="f_img"><img id="img_prev" alt="" src="${im}" style="max-height:110px;margin-top:6px;${im?"":"display:none"}"></label></div>
  <div class="row" style="margin-top:12px"><button class="btn pri" data-act="prod-save" data-id="${i?i.id:""}">${L("保存","Save")}</button></div></div>`)};
 const skuField=v=>`<label class="fld"><span>SKU</span><div class="row" style="flex-wrap:nowrap"><input class="in" id="f_sku" value="${esc(v.sku||"")}"><button class="btn" data-act="sku-gen">${L("生成","Auto")}</button></div></label>`;
 ACT["sku-gen"]=()=>{const n=Math.max(0,...items.map(i=>+((String(i.sku).match(/(\d+)$/)||[0,0])[1])))+1;$("f_sku").value="SKU"+String(n).padStart(5,"0")};
+ACT["code-gen"]=()=>{const mx=Math.max(0,...items.filter(i=>/^2\d{12}$/.test(i.code)).map(i=>+i.code.slice(1,12)));const b="2"+String(mx+1).padStart(11,"0");let s=0;for(let i=0;i<12;i++)s+=(+b[i])*(i%2?3:1);$("f_code").value=b+((10-s%10)%10)};
 ACT["scan-code"]=()=>openScan(c=>{$("f_code").value=c});
 document.addEventListener("change",e=>{if(e.target.id!=="f_img")return;const f=e.target.files[0];if(!f)return;const r=new FileReader();
  r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,600/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);imgBuf=c.toDataURL("image/jpeg",.85);const p=$("img_prev");p.src=imgBuf;p.style.display="block"};im.src=r.result};r.readAsDataURL(f)});
 ACT["prod-save"]=id=>{const o={brand:V("brand"),d1:V("d1"),d2:V("d2"),size:V("size"),code:V("code"),sku:V("sku"),cat:V("cat"),unit:V("unit"),sup:V("sup"),mp:+V("mp")||0,np:+V("np")||0,cost:+V("cost")||0,box:Math.max(0,Math.round(+V("box")||0)),ls:V("ls"),lw:V("lw"),min:Math.max(0,Math.round(+V("min")||0)),note:V("note"),shelf:Math.max(0,Math.round(+V("shelf")||0)),warn:Math.max(0,Math.round(+V("warn")||0))};
  if(!o.brand){toast(L("请填写商品名称","Name required"));return}
- if(o.code&&!/^\d{13}$/.test(o.code)){toast(L("条码必须是 13 位数字","Barcode must be 13 digits"));return}
+ if(o.code&&!/^[\x21-\x7E]{1,48}$/.test(o.code)){toast(L("条码只能含字母、数字和常见符号(不含空格),最多 48 位","Barcode: letters, digits, common symbols (no spaces), max 48"));return}
  if(o.code&&items.find(x=>x.code===o.code&&String(x.id)!==String(id))){toast(L("该条码已存在","Barcode already exists"));return}
  if(o.sku&&items.find(x=>x.sku&&x.sku.toLowerCase()===o.sku.toLowerCase()&&String(x.id)!==String(id))){toast(L("该 SKU 已存在","SKU already exists"));return}
  let i=id?byId(items,id):null;
  if(i){Object.assign(i,o);if(imgBuf)i.img=imgBuf}
  else{const qs=Math.max(0,Math.round(+V("qs")||0)),qw=Math.max(0,Math.round(+V("qw")||0));i={id:uid(),...o,qs,qw,qty:qs+qw,exp:V("exp0"),img:imgBuf||"",on:true,counted:null};items.push(i);norm();if(qs+qw>0){logMove(i,"adjust",qs,qw,L("新增商品(初始库存)","New product (initial stock)"));SAVE.moves()}SAVE.batches()}
- SAVE.items();toast(o.code&&!eanOk(o.code)?L("已保存(条码校验位可能有误)","Saved (check digit looks wrong)"):L("已保存","Saved"));go("prod-detail-"+i.id)};
+ SAVE.items();toast(o.code&&/^\d{13}$/.test(o.code)&&!eanOk(o.code)?L("已保存(条码校验位可能有误)","Saved (check digit looks wrong)"):L("已保存","Saved"));go("prod-detail-"+i.id)};
 /* products import/export (Excel, or ZIP package = Excel + images) */
 PG["prod-io"]=()=>main(head(L("批量导入导出","Bulk import / export"))+`<div class="card"><h3>${L("导出","Export")}</h3><p class="muted">${L("Excel 文件本身放不了图片,所以“商品包”是一个 ZIP:里面有 products.xlsx(含图片文件名那一列)和 images 文件夹(每个商品一张图)。导入时选这个 ZIP 就能把图片一起带回来。","An Excel file cannot hold pictures, so the package is a ZIP with products.xlsx plus an images folder. Import the ZIP to restore the pictures too.")}</p><div class="row"><button class="btn pri" data-act="io-zip">📦 ${L("导出商品包(Excel + 图片)","Export package (Excel + images)")}</button><button class="btn" data-act="io-exp">${L("仅导出 Excel","Excel only")}</button><button class="btn" data-act="io-tpl">${L("下载导入模板","Template")}</button></div></div>
  <div class="card"><h3>${L("导入","Import")}</h3><p class="muted">${L("支持 .zip(商品包)、.xlsx、.xls、.csv。按条码匹配(没有条码时按 SKU):已有商品更新资料和图片(库存和到期日请在库存管理按批次维护),新增商品的库存和到期日会建成“初始库存”批次;分类和供应商名称不存在会自动创建。Excel 里“Image”列写图片文件名,ZIP 里放对应图片;没有这一列时,也会按 SKU 或条码命名的图片文件自动对应。","Supports .zip package, .xlsx, .xls, .csv. Matched by barcode (or SKU). Pictures are matched by the Image column, or by files named after the SKU/barcode.")}</p><input type="file" id="io_file" accept=".xlsx,.xls,.csv,.zip" class="in"><div id="io_msg" class="muted" style="margin-top:8px"></div></div>`);
@@ -642,7 +675,7 @@ PG["stk-op"]=()=>{const it=S.opPid?byId(items,S.opPid):null,ty=OPS[S.opType]?S.o
  <div class="card"><h3>2. ${L("填写操作","Operation")}</h3><div class="fg">${F("op","操作类型","Type",ty,{type:"select",opts:Object.keys(OPS).map(k=>[k,L(OPS[k][0],OPS[k][1])])})}<label class="fld"><span>${L("数量","Quantity")}</span><div class="row" style="flex-wrap:nowrap"><input class="in" id="f_qty" type="number" min="1" placeholder="1">${it&&it.box>1?`<select class="in sm" id="f_unit"><option value="pc">${L("个","pcs")}</option><option value="box">${L("箱(每箱"+it.box+"个)","box ("+it.box+"/box)")}</option></select>`:""}</div></label>${F("batch","批次(出库/上架/下架时可选,默认先到期先出)","Batch (optional; default: earliest expiry first)","",{type:"select",opts:[["",L("自动(先到期先出)","Auto (earliest expiry first)")],...(it?bOf(it.id).filter(b=>b.qs+b.qw>0).sort(byExp).map(b=>[b.id,(b.exp||L("无到期日","no expiry"))+L(" · 货架"," · shelf ")+b.qs+L(" 仓库"," WH ")+b.qw]):[])]})}${F("mfg","生产日期(仅入库时填)","Production date (receive only)","",{type:"date"})}${F("exp","到期日期(仅入库时填)","Expiry date (receive only)","",{type:"date"})}${F("note","备注","Note","",{w:"full"})}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="op-do">${L("确认提交","Submit")}</button></div></div>
  <div class="card"><h3>${L("最近流水","Recent movements")}</h3>${mvRows(moves.slice(0,8))}</div>`)};
 ACT["pk-pick"]=id=>{S.opPid=id;render()};
-ACT["pk-scan"]=()=>openScan(c=>{const it=items.find(x=>x.code===c);if(it){S.opPid=it.id;render()}else toast(L("条码 "+c+" 不在商品列表中","Barcode "+c+" not found"))});
+ACT["pk-scan"]=()=>openScan(c=>{const it=findByCode(c);if(it){S.opPid=it.id;render()}else toast(L("条码 "+c+" 不在商品列表中","Barcode "+c+" not found"))});
 ACT["op-do"]=()=>{const it=S.opPid?byId(items,S.opPid):null;if(!it){toast(L("请先选择商品","Choose a product first"));return}
  const k=V("op"),o=OPS[k];S.opType=k;let q=Math.round(+$("f_qty").value||0);if(q<=0){toast(L("请输入数量","Enter a quantity"));return}
  const u=$("f_unit");if(u&&u.value==="box")q*=it.box;const ds=o[2]*q,dw=o[3]*q,bid=V("batch"),note=V("note");
@@ -654,7 +687,7 @@ ACT["op-do"]=()=>{const it=S.opPid?byId(items,S.opPid):null;if(!it){toast(L("请
 /* count */
 const cLoc=()=>S.cntLoc==="wh"?"wh":"shelf";
 const locQ=i=>cLoc()==="wh"?i.qw:i.qs;
-function stockScan(c){const i=items.find(x=>x.code===c);const m=$("scan_msg");if(!i){if(m)m.textContent=L("条码 "+c+" 不在商品列表中","Barcode "+c+" not found");return}
+function stockScan(c){const i=findByCode(c);const m=$("scan_msg");if(!i){if(m)m.textContent=L("条码 "+c+" 不在商品列表中","Barcode "+c+" not found");return}
  i.counted=(i.counted==null?0:i.counted)+1;SAVE.items();if(LST["stk-count"])LST["stk-count"].paint();if(m)m.textContent=pname(i)+L("：已盘点 ",": counted ")+i.counted}
 document.addEventListener("keydown",e=>{if(e.target.id==="scan_in"&&e.key==="Enter"){const c=normCode(e.target.value);e.target.value="";if(c)stockScan(c)}});
 document.addEventListener("change",e=>{if(e.target.id==="cnt_loc"){S.cntLoc=e.target.value;items.forEach(i=>i.counted=null);SAVE.items();toast(L("已切换盘点位置,原盘点数已清空","Location changed, counts cleared"));render()}});
@@ -869,7 +902,7 @@ async function productsPdf(rows){
   const im=await loadImg(imgOf(it));if(im){const s=Math.min(80/im.width,80/im.height);x.drawImage(im,X.img+(80-im.width*s)/2,y+10+(80-im.height*s)/2,im.width*s,im.height*s)}
   wrap(pname(it),24,X.bc-X.name-16,2).forEach((t,j)=>T(t,24,X.name,y+8+j*30,{b:j===0}));
   if(it.sku)T("SKU "+it.sku,20,X.name,y+72,{col:"#666"});
-  const bits=eanBits(it.code);if(bits){const bw=200/bits.length*1,bx=X.bc,by=y+10;x.fillStyle="#000";for(let k=0;k<bits.length;k++)if(bits[k]==="1")x.fillRect(bx+k*bw*1.0,by,Math.max(bw,1.2),(k<3||k>91||(k>=45&&k<50))?50:44);T(it.code,20,bx,y+66,{col:"#444"})}
+  const bi=barInfo(it.code);if(bi){const q=bi.q||0,n=bi.bits.length+2*q,bw=Math.min(3,200/n),bx=X.bc,by=y+10;x.fillStyle="#000";for(let k=0;k<bi.bits.length;k++)if(bi.bits[k]==="1")x.fillRect(bx+(q+k)*bw,by,Math.max(bw,1.2),bi.long(k)?50:44);T(it.code.length>24?it.code.slice(0,24)+"…":it.code,20,bx,y+66,{col:"#444"})}
   else if(it.code)T(it.code,20,X.bc,y+36,{col:"#444"});
   T(nm(cats,it.cat)||"—",22,X.cat,y+14);T(nm(sups,it.sup)||"—",22,X.cat,y+48,{col:"#555"});
   T(L("会员 ","Member ")+money(it.mp),22,X.price,y+14,{b:1});T(L("非会员 ","Non-mem ")+money(it.np),22,X.price,y+48,{col:"#555"});
