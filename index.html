@@ -896,7 +896,155 @@ const PK=200/150;
 const loadImg=src=>new Promise(r=>{if(!src)return r(null);const im=new Image();im.onload=()=>r(im);im.onerror=()=>r(null);im.src=src});
 const FONT='"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Heiti SC",system-ui,sans-serif';
 
- 
+async function poPdf(p){
+  const PK=200/150;
+  const W=1240,H=1754,M=70,pages=[],RH=136;let c,x,y;
+
+  const np=()=>{
+    c=document.createElement("canvas");
+    c.width=Math.round(W*PK);
+    c.height=Math.round(H*PK);
+    x=c.getContext("2d");
+    x.scale(PK,PK);
+    x.fillStyle="#fff";
+    x.fillRect(0,0,W,H);
+    x.fillStyle="#111";
+    x.textBaseline="top";
+    pages.push(c);
+    y=M
+  };
+
+  const T=(t,px,xx,yy,o)=>{
+    o=o||{};
+    x.font=(o.b?"bold ":"")+px+"px "+FONT;
+    x.fillStyle=o.col||"#111";
+    x.textAlign=o.al||"left";
+    x.fillText(String(t),xx,yy)
+  };
+
+  const wrap=(t,px,mw,mx)=>{
+    x.font=px+"px "+FONT;
+    const out=[];let ln="";
+    for(const w of String(t).split(/(?<= )/)){
+      if(x.measureText(ln+w).width<=mw){ln+=w;continue}
+      if(ln){out.push(ln);ln=""}
+      if(x.measureText(w).width<=mw){ln=w;continue}
+      for(const ch of w){
+        if(x.measureText(ln+ch).width>mw&&ln){out.push(ln);ln=ch}
+        else ln+=ch
+      }
+    }
+    if(ln)out.push(ln);
+    return out.slice(0,mx||2)
+  };
+
+  const cols={no:M,img:M+46,name:M+150,qty:W-M-440,price:W-M-215,amt:W-M};
+  const head=()=>{
+    x.fillStyle="#1d2fa0";
+    x.fillRect(M,y,W-2*M,50);
+    T("#",24,cols.no+8,y+12,{col:"#fff",b:1});
+    T(L("商品","Product"),24,cols.name,y+12,{col:"#fff",b:1});
+    T(L("下单码","Order QR"),24,cols.qty-135,y+12,{col:"#fff",b:1});
+    T(L("数量","Qty"),24,cols.qty,y+12,{col:"#fff",b:1});
+    T(L("单价/个","Cost/pc"),24,cols.price,y+12,{col:"#fff",b:1,al:"right"});
+    T(L("小计","Amount"),24,cols.amt-10,y+12,{col:"#fff",b:1,al:"right"});
+    y+=58
+  };
+
+  np();
+  if(CFG.shop)T(CFG.shop,28,M,y,{col:"#555"}),y+=40;
+
+  //====采购单号条码绘制====
+  const barData=barInfo(p.no);
+  if(barData){
+    const barX=W - M - 220;
+    const barY=y;
+    const barH=48;
+    const bw=1.8;
+    let bx=barX;
+    for(let i=0;i<barData.bits.length;i++){
+      if(barData.bits[i]==="1"){
+        x.fillStyle="#000000";
+        x.fillRect(bx,barY,bw,barH);
+      }
+      bx+=bw;
+    }
+    x.fillStyle="#000000";
+    x.font="18px sans-serif";
+    x.textAlign="center";
+    x.fillText(p.no, barX + (barData.bits.length*bw)/2, barY+barH+24);
+    x.textAlign="left";
+  }
+  //========================
+
+  T(L("采购单","Purchase Order")+"  "+(p.no||L("(草稿)","(draft)")),50,M,y,{b:1});y+=76;
+  T(L("供应商:","Supplier: ")+nm(sups,p.sup),28,M,y);y+=40;
+  T(L("日期:","Date: ")+p.date,28,M,y);y+=42;
+  const sp=byId(sups,p.sup);
+  if(sp&&(sp.contact||sp.phone)){
+    T([sp.contact,sp.phone].filter(Boolean).join("  "),24,M,y,{col:"#555"});
+    y+=38
+  }
+  y+=14;
+  head();
+
+  for(let k=0;k<p.lines.length;k++){
+    const l=p.lines[k],it=byId(items,l.pid)||{brand:"?"};
+    if(y+RH>H-M-160){np();head()}
+    if(k%2)(x.fillStyle="#f4f5f8",x.fillRect(M,y,W-2*M,RH));
+    const im=await loadImg(imgOf(it));
+    if(im){
+      const s=Math.min(84/im.width,84/im.height);
+      x.fillStyle="#fff";
+      x.fillRect(cols.img,y+10,84,84);
+      x.drawImage(im,cols.img+(84-im.width*s)/2,y+10+(84-im.height*s)/2,im.width*s,im.height*s)
+    }
+    const ou=prodOrderUrl(it,true);
+    if(ou)qrDraw(x,ou,cols.qty-150,y+4,128,0,2);
+    const ln=wrap(pname(it),26,cols.qty-cols.name-(ou?165:20),2);
+    ln.forEach((t,j)=>T(t,26,cols.name,y+10+j*32));
+    T([it.sku&&"SKU "+it.sku,it.code].filter(Boolean).join("  "),20,cols.name,y+10+ln.length*32+2,{col:"#666"});
+    const qt=l.unit==="box"?[l.qty+unitTxt(l),`${l.perBox||1}${L("个/箱","/box")} = ${lnPcs(l)}${L("个","pcs")}`]:[l.qty+unitTxt(l)];
+    qt.forEach((t,j)=>T(t,24,cols.qty,y+14+j*30));
+    T(money(l.cost),24,cols.price,y+36,{al:"right"});
+    T(money(lnPcs(l)*l.cost),24,cols.amt-10,y+36,{al:"right",b:1});
+    x.strokeStyle="#ddd";
+    x.beginPath();
+    x.moveTo(M,y+RH);
+    x.lineTo(W-M,y+RH);
+    x.stroke();
+    y+=RH
+  }
+
+  y+=24;
+  T(L("合计","Total")+": "+L(p.lines.length+" 项 · "+p.lines.reduce((a,l)=>a+lnPcs(l),0)+" 个",p.lines.length+" items · "+p.lines.reduce((a,l)=>a+lnPcs(l),0)+" pcs"),26,M,y+4);
+  T(money(poTotal(p)),40,W-M-10,y,{al:"right",b:1});
+  y+=70;
+
+  if(p.note){
+    wrap(L("备注: ","Note: ")+p.note,24,W-2*M,4).forEach(t=>{
+      T(t,24,M,y,{col:"#444"});
+      y+=34
+    })
+  }
+
+  pages.forEach((pc,i)=>{
+    const cx=pc.getContext("2d");
+    cx.textBaseline="top";
+    cx.font="20px "+FONT;
+    cx.fillStyle="#888";
+    cx.textAlign="center";
+    cx.fillText((i+1)+" / "+pages.length,W/2,H-60)
+  });
+
+  const jp=pages.map(pc=>{
+    const u=atob(pc.toDataURL("image/jpeg",.9).split(",")[1]);
+    const a=new Uint8Array(u.length);
+    for(let i=0;i<u.length;i++)a[i]=u.charCodeAt(i);
+    return{data:a,w:pc.width,h:pc.height}
+  });
+  return makePdf(jp)
+}
  
 function makePdf(jp){const enc=s=>new TextEncoder().encode(s),parts=[],offs=[];let len=0;const push=u=>{parts.push(u);len+=u.length};
  const obj=(n,body)=>{offs[n]=len;push(enc(n+" 0 obj\n"+body+"\nendobj\n"))};
@@ -908,7 +1056,21 @@ function makePdf(jp){const enc=s=>new TextEncoder().encode(s),parts=[],offs=[];l
  const total=3+N*3,xr=len;let t=`xref\n0 ${total}\n0000000000 65535 f \n`;for(let i=1;i<total;i++)t+=String(offs[i]).padStart(10,"0")+" 00000 n \n";
  t+=`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF`;push(enc(t));
  const out=new Uint8Array(len);let o=0;parts.forEach(u=>{out.set(u,o);o+=u.length});return out}
-async function savePoPdf(p){toast(L("正在生成 PDF…","Generating PDF…"));try{const b=await poPdf(p);await saveFile((p.no||"purchase-order")+".pdf",b,"application/pdf");toast(L("PDF 已生成","PDF ready"))}catch(e){toast(e&&(e.code==="declined"||e.name==="AbortError")?L("已取消","Cancelled"):L("生成失败","Failed"))}}
+async function savePoPdf(p){
+  toast(L("正在生成 PDF…","Generating PDF…"));
+  try{
+    const b=await poPdf(p);
+    await saveFile((p.no||"purchase-order")+".pdf",b,"application/pdf");
+    toast(L("PDF 已生成","PDF ready"));
+  }catch(e){
+    console.error("PDF生成异常",e);
+    if(e&&(e.code==="declined"||e.name==="AbortError")){
+      toast(L("已取消","Cancelled"));
+    }else{
+      toast(L("PDF生成失败，尝试减少采购单行数，或使用电脑浏览器","PDF failed, try fewer lines or desktop browser"));
+    }
+  }
+}
 ACT["po-pdf"]=id=>savePoPdf(byId(pos,id));
 ACT["po-pdf-draft"]=()=>savePoPdf(Object.assign({},poD,{sup:V("sup")||poD.sup,date:V("date")||poD.date,note:V("note")}));
 
