@@ -133,14 +133,7 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 
 .pc{display:flex;gap:10px;align-items:center;min-width:0;text-align:left}.pc .thumb,.pc .noimg{flex:none;width:46px;height:46px}.pt{min-width:0}
 </style></head><body>
-<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main">
-<div class="top">
-<button class="btn burger" data-act="burger">☰</button>
-<div class="crumb" id="crumb"></div>
-<button class="btn sm" data-act="auth-logout">🚪 ${L("登出","Logout")}</button>
-<button class="btn sm" id="langbtn" data-act="lang"></button>
-</div>
-    <div class="content" id="main"></div></div></div>
+<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button></div><div class="content" id="main"></div></div></div>
 <nav class="bnav" id="bnav"></nav><div id="toast"></div><div id="scan_modal"></div><div id="zoom"></div>
 <script>
 "use strict";
@@ -155,141 +148,6 @@ const fmtD=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+Str
 const today=()=>fmtD(new Date());
 const addDays=(s,n)=>{const d=new Date(s+"T00:00:00");d.setDate(d.getDate()+n);return fmtD(d)};
 function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2600)}
-/* ========== 登录模块（纯前端localStorage存储） ========== */
-const AUTH_KEY = "shop_auth_info";
-const SESSION_KEY = "shop_session";
-
-// 获取认证配置：{username,pwdB64}，未设置返回null
-function getAuthConfig(){
-  const raw = localStorage.getItem(AUTH_KEY);
-  if(!raw) return null;
-  try{ return JSON.parse(raw); }catch{return null;}
-}
-
-// 设置管理员账号密码
-function setAdminAuth(username,password){
-  const info = {
-    username: String(username||"").trim(),
-    pwdB64: btoa(String(password||""))
-  };
-  localStorage.setItem(AUTH_KEY, JSON.stringify(info));
-}
-
-// 校验账号密码
-function verifyAuth(username,password){
-  const cfg = getAuthConfig();
-  if(!cfg) return false;
-  return cfg.username === String(username).trim() && cfg.pwdB64 === btoa(String(password));
-}
-
-// 创建会话标记（登录成功调用）
-function createSession(){
-  const sess = { loginAt:Date.now() };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(sess));
-}
-
-// 销毁会话（登出）
-function destroySession(){
-  localStorage.removeItem(SESSION_KEY);
-}
-
-// 检查是否已登录
-function isLogined(){
-  const sRaw = localStorage.getItem(SESSION_KEY);
-  if(!sRaw) return false;
-  try{
-    const s = JSON.parse(sRaw);
-    return !!s.loginAt;
-  }catch{
-    return false;
-  }
-}
-
-// 获取登录HTML：设置账号 / 登录界面
-function renderAuthHtml(){
-  const cfg = getAuthConfig();
-  if(!cfg){
-    // 首次：设置管理员账号密码
-    return `
-<div class="card" style="max-width:480px;margin:40px auto">
-  <h3>${L("设置管理员账号密码","Set admin account")}</h3>
-  <div class="fg">
-    <label class="fld full">
-      <span>${L("管理员账号","Admin username")}</span>
-      <input class="in" id="au_username" placeholder="${L("输入账号","Username")}">
-    </label>
-    <label class="fld full">
-      <span>${L("设置登录密码","Password")}</span>
-      <input class="in" id="au_pwd" type="password" placeholder="${L("输入密码","Password")}">
-    </label>
-    <label class="fld full">
-      <span>${L("确认密码","Confirm password")}</span>
-      <input class="in" id="au_pwd2" type="password" placeholder="${L("再次输入密码","Confirm")}">
-    </label>
-  </div>
-  <div class="row" style="margin-top:12px">
-    <button class="btn pri" data-act="auth-set">${L("保存设置","Save")}</button>
-  </div>
-  <p class="sub">${L("请记住账号密码；忘记密码只能清空浏览器本地数据重置。","Remember credentials; clearing browser data resets password.")}</p>
-</div>`;
-  }else{
-    // 正常登录界面
-    return `
-<div class="card" style="max-width:480px;margin:40px auto">
-  <h3>${L("杂货店管理系统 · 登录","Shop Manager · Login")}</h3>
-  <div class="fg">
-    <label class="fld full">
-      <span>${L("账号","Username")}</span>
-      <input class="in" id="au_username" placeholder="${L("账号","Username")}">
-    </label>
-    <label class="fld full">
-      <span>${L("密码","Password")}</span>
-      <input class="in" id="au_pwd" type="password" placeholder="${L("密码","Password")}">
-    </label>
-  </div>
-  <div class="row" style="margin-top:12px">
-    <button class="btn pri" data-act="auth-login">${L("登录","Login")}</button>
-  </div>
-</div>`;
-  }
-}
-
-// 渲染登录页，覆盖main内容
-function showAuthPage(){
-  $("main").innerHTML = renderAuthHtml();
-}
-
-// 登录事件处理
-ACT["auth-set"] = ()=>{
-  const u = $("au_username").value.trim();
-  const p1 = $("au_pwd").value;
-  const p2 = $("au_pwd2").value;
-  if(!u){ toast(L("请填写账号","Username required")); return; }
-  if(!p1){ toast(L("请填写密码","Password required")); return; }
-  if(p1 !== p2){ toast(L("两次密码不一致","Password mismatch")); return; }
-  setAdminAuth(u,p1);
-  createSession();
-  toast(L("管理员账号已设置，登录成功","Account created, logged in"));
-  render();
-};
-
-ACT["auth-login"] = ()=>{
-  const u = $("au_username").value.trim();
-  const p = $("au_pwd").value;
-  if(verifyAuth(u,p)){
-    createSession();
-    toast(L("登录成功","Login success"));
-    render();
-  }else{
-    toast(L("账号或密码错误","Wrong username or password"));
-  }
-};
-
-ACT["auth-logout"] = ()=>{
-  destroySession();
-  toast(L("已登出","Logged out"));
-  render();
-};
 
 /* ---------- IndexedDB Image Store & Blob URL Manager ---------- */
 const ImgDB = {
@@ -794,13 +652,7 @@ const MENU=[
 {id:"po",i:"🧾",z:"采购管理",e:"Purchasing",c:[{id:"po-list",z:"采购单",e:"Purchase orders"},{id:"po-edit",z:"新建采购单",e:"New order"},{id:"po-reorder",z:"补货建议",e:"Reorder"}]},
 {id:"stk",i:"📋",z:"库存管理",e:"Inventory",c:[{id:"stk-overview",z:"库存总览",e:"Overview"},{id:"stk-op",z:"库存操作",e:"Operations"},{id:"stk-count",z:"盘点作业",e:"Stocktake"},{id:"stk-loc",z:"库位管理",e:"Locations"},{id:"stk-expiry",z:"批次与效期",e:"Batches & expiry"},{id:"stk-alert",z:"库存预警",e:"Stock alerts"},{id:"stk-move",z:"库存流水",e:"Movements"},{id:"stk-hist",z:"盘点记录",e:"Count history"}]},
 {id:"rep",i:"📈",z:"报表中心",e:"Reports",c:[{id:"rep-stock",z:"库存报表",e:"Stock report"},{id:"rep-buy",z:"采购报表",e:"Purchase report"},{id:"rep-var",z:"盘点差异报表",e:"Variance report"},{id:"rep-margin",z:"商品毛利报表",e:"Margin report"},{id:"rep-exp",z:"效期报表",e:"Expiry report"}]},
-{id:"set",i:"⚙️",z:"设置",e:"Settings",c:[
-  {id:"set-shop",z:"店铺信息",e:"Shop info"},
-  {id:"set-password",z:"修改管理员账号密码",e:"Change admin password"},
-  {id:"set-lang",z:"语言与显示",e:"Language"},
-  {id:"set-data",z:"数据导入导出",e:"Data backup"},
-  {id:"set-about",z:"关于系统",e:"About"}
-]}];
+{id:"set",i:"⚙️",z:"设置",e:"Settings",c:[{id:"set-shop",z:"店铺信息",e:"Shop info"},{id:"set-lang",z:"语言与显示",e:"Language"},{id:"set-data",z:"数据导入导出",e:"Data backup"},{id:"set-about",z:"关于系统",e:"About"}]}];
 const DETAIL=new Set(["prod-detail","prod-edit","sup-detail","sup-edit","po-detail","po-edit","staff-detail","staff-edit","stk-detail"]);
 const PARENT={"prod-detail":"prod-list","sup-detail":"sup-list","po-detail":"po-list","staff-detail":"staff-list","stk-detail":"stk-hist"};
 const EDITP={"prod-edit":"prod-list","sup-edit":"sup-list","po-edit":"po-list","staff-edit":"staff-list"};
@@ -819,20 +671,7 @@ function renderSide(p,id){const act=actId(p,id);
  $("crumb").innerHTML=`${L(m1.z,m1.e)} › ${m1.c.length>1?L(m2.z,m2.e):""}${id&&EDITP[p]||PARENT[p]?sub:""}`.replace(/ › $/,"");
  const bn=[["home","🏠",L("首页","Home")],["prod-list","📦",L("商品","Products")],["stk-overview","📋",L("库存","Stock")],["po-list","🧾",L("采购","Orders")]];
  $("bnav").innerHTML=bn.map(b=>`<a data-go="${b[0]}" class="${find2(act)[0]===find2(b[0])[0]?"on":""}"><i>${b[1]}</i>${b[2]}</a>`).join("")+`<a data-act="drawer"><i>☰</i>${L("菜单","Menu")}</a>`}
-function render(top){
-  revokeAllObjUrl();
-  // 未登录，直接展示登录页面，不再执行业务渲染
-  if(!isLogined()){
-    showAuthPage();
-    return;
-  }
-  const{p,id}=cur();
-  renderSide(p,id);
-  $("langbtn").textContent=LANG==="zh"?"EN":"zh";
-  PG[p](id);
-  hydrateImages($("main"));
-  if(top)window.scrollTo(0,0);
-}
+function render(top){revokeAllObjUrl();const{p,id}=cur();renderSide(p,id);$("langbtn").textContent=LANG==="zh"?"EN":"中文";PG[p](id);hydrateImages($("main"));if(top)window.scrollTo(0,0)}
 const main=h=>{$("main").innerHTML=h};
 const head=(t,r)=>`<div class="ph"><h2>${t}</h2><div class="row">${r||""}</div></div>`;
 
@@ -1787,75 +1626,14 @@ ACT["bak-reset"]=(_,el)=>cf(el,async()=>{
  BlobPool.clear();
  location.reload();
 });
-PG["set-password"]=()=>{
-  const cfg = getAuthConfig();
-  main(head(L("修改管理员账号密码","Change admin password"),`${bk}set-shop">← ${L("返回","Back")}</button>`)+`
-<div class="card">
-  <div class="fg">
-    <label class="fld full">
-      <span>${L("当前账号","Current username")}</span>
-      <input class="in" id="pw_cur_user" value="${esc(cfg?.username||"")}" readonly>
-    </label>
-    <label class="fld full">
-      <span>${L("新账号(留空不修改)","New username (leave blank to keep)")}</span>
-      <input class="in" id="pw_new_user" placeholder="${L("留空不修改账号","Leave blank to keep")}">
-    </label>
-    <label class="fld full">
-      <span>${L("新密码(留空不修改密码)","New password (leave blank to keep)")}</span>
-      <input class="in" id="pw_new_pwd" type="password" placeholder="${L("留空不修改密码","Leave blank to keep")}">
-    </label>
-    <label class="fld full">
-      <span>${L("确认新密码","Confirm new password")}</span>
-      <input class="in" id="pw_new_pwd2" type="password">
-    </label>
-  </div>
-  <div class="row" style="margin-top:12px">
-    <button class="btn pri" data-act="pw-save">${L("保存修改","Save changes")}</button>
-  </div>
-  <p class="sub">${L("忘记密码：清除浏览器该网站本地存储，重新打开设置新管理员账号。","Forgot password: clear site local storage to reset.")}</p>
-</div>`);
-};
-
-ACT["pw-save"]=()=>{
-  const cfg = getAuthConfig();
-  let newUser = $("pw_new_user").value.trim();
-  const newPwd1 = $("pw_new_pwd").value;
-  const newPwd2 = $("pw_new_pwd2").value;
-
-  const finalUser = newUser ? newUser : cfg.username;
-  let finalPwdB64 = cfg.pwdB64;
-
-  if(newPwd1 || newPwd2){
-    if(newPwd1 !== newPwd2){
-      toast(L("两次新密码不一致","New password mismatch"));
-      return;
-    }
-    if(!newPwd1){
-      toast(L("密码不能为空","Password cannot be empty"));
-      return;
-    }
-    finalPwdB64 = btoa(newPwd1);
-  }
-  localStorage.setItem(AUTH_KEY, JSON.stringify({
-    username: finalUser,
-    pwdB64: finalPwdB64
-  }));
-  toast(L("账号密码已更新，需要重新登录","Credentials updated, please relogin"));
-  destroySession();
-  render();
-};
 PG["set-about"]=()=>main(head(L("关于系统","About"))+`<div class="card"><p><b>${L("杂货店管理系统","Provision Shop Manager")}</b></p><p class="muted">${L("所有数据保存在本机浏览器中(localStorage + IndexedDB),关闭页面或断网都不会丢失。请定期在“设置 › 数据导入导出”下载完整 ZIP 备份。","All data is stored locally in this browser (localStorage + IndexedDB) and works offline. Download a full ZIP backup regularly in Settings › Data backup.")}</p></div>`);
 
 /* ---------- boot ---------- */
-async function bootApp(){
+(async function boot() {
   await safeInitStorage();
   migrateOldGoods();
   norm();
   buildModal();
-}
-
-(async function boot() {
-  await bootApp();
   render();
 })();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
