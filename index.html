@@ -133,7 +133,7 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 
 .pc{display:flex;gap:10px;align-items:center;min-width:0;text-align:left}.pc .thumb,.pc .noimg{flex:none;width:46px;height:46px}.pt{min-width:0}
 </style></head><body>
-<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" id="burgerbtn" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button><button class="btn sm red" id="logoutbtn" data-act="logout" style="display:none"></button></div><div class="content" id="main"></div></div></div>
+<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button></div><div class="content" id="main"></div></div></div>
 <nav class="bnav" id="bnav"></nav><div id="toast"></div><div id="scan_modal"></div><div id="zoom"></div>
 <script>
 "use strict";
@@ -148,16 +148,6 @@ const fmtD=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+Str
 const today=()=>fmtD(new Date());
 const addDays=(s,n)=>{const d=new Date(s+"T00:00:00");d.setDate(d.getDate()+n);return fmtD(d)};
 function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2600)}
-
-/* ---------- core layout & form helpers (declared early to avoid TDZ) ---------- */
-const main=h=>{$("main").innerHTML=h};
-const head=(t,r)=>`<div class="ph"><h2>${t}</h2><div class="row">${r||""}</div></div>`;
-const F=(k,z,e,v,o)=>{o=o||{};const id="f_"+k,val=v==null?"":v;let inp;
- if(o.type==="select")inp=`<select class="in" id="${id}">${o.opts.map(([ov,ol])=>`<option value="${esc(ov)}" ${String(ov)===String(val)?"selected":""}>${esc(ol)}</option>`).join("")}</select>`;
- else if(o.type==="textarea")inp=`<textarea class="in" id="${id}" rows="3">${esc(val)}</textarea>`;
- else inp=`<input class="in" id="${id}" type="${o.type||"text"}" ${o.step?`step="${o.step}"`:""} ${o.max?`maxlength="${o.max}"`:""} ${o.type==="number"?'min="0"':""} ${o.ac?`autocomplete="${o.ac}"`:""} value="${esc(val)}">`;
- return`<label class="fld ${o.w||""}"><span>${L(z,e)}${o.req?" *":""}</span>${inp}</label>`};
-const V=k=>{const e=$("f_"+k);return e?e.value.trim():""};
 
 /* ---------- IndexedDB Image Store & Blob URL Manager ---------- */
 const ImgDB = {
@@ -398,7 +388,7 @@ const itemHasSup = (i, sid) => itemSupIds(i).includes(String(sid));
 const itemEntryForSup = (i, sid) => (Array.isArray(i.supplierItems) ? i.supplierItems.find(x => String(x.supId) === String(sid)) : null) || itemPrimaryEntry(i);
 
 function sanitizeFilename(s) {
-  return String(s || "").replace(/[\/:*?"<>|]/g, "_").replace(/[ - ]/g, "").replace(/\s+/g, " ").trim().replace(/\.+$/, "");
+  return String(s || "").replace(/[\\/:*?"<>|]/g, "_").replace(/[\x00-\x1f]/g, "").replace(/\s+/g, " ").trim().replace(/\.+$/, "");
 }
 
 async function exportAllImagesZip() {
@@ -490,7 +480,7 @@ const ean8Ok=c=>{if(!/^\d{8}$/.test(c))return false;const d=[...c].map(Number);c
 const ean8Bits=c=>{const d=[...c].map(Number);let s="101";for(let i=0;i<4;i++)s+=T[d[i]];s+="01010";for(let i=4;i<8;i++)s+=R[d[i]];return s+"101"};
 function c128Codes(t){const codes=[];if(/^\d{4,}$/.test(t)&&t.length%2===0){codes.push(105);for(let i=0;i<t.length;i+=2)codes.push(+t.slice(i,i+2))}else{codes.push(104);for(const ch of t)codes.push(ch.charCodeAt(0)-32)}let s=codes[0];for(let i=1;i<codes.length;i++)s+=codes[i]*i;codes.push(s%103,106);return codes}
 function c128Bits(t){let b="";c128Codes(t).forEach(c=>{let bar=1;for(const w of C128P[c]){b+=(bar?"1":"0").repeat(+w);bar^=1}});return b}
-function barInfo(c){c=String(c==null?"":c);if(!/^[!-~]{1,48}$/.test(c))return null;
+function barInfo(c){c=String(c==null?"":c);if(!/^[\x21-\x7E]{1,48}$/.test(c))return null;
  if(/^\d{13}$/.test(c))return{t:"EAN13",bits:ean13Bits(c),q:0,long:k=>k<3||k>91||(k>=45&&k<50)};
  if(/^\d{12}$/.test(c)&&eanOk("0"+c))return{t:"UPCA",bits:ean13Bits("0"+c),q:0,long:k=>k<3||k>91||(k>=45&&k<50)};
  if(/^\d{8}$/.test(c)&&ean8Ok(c))return{t:"EAN8",bits:ean8Bits(c),q:0,long:k=>k<3||k>63||(k>=31&&k<36)};
@@ -599,8 +589,6 @@ let sups=ld("suppliers1",[]),hist=ld("stockhist1",[]),cats=ld("cats1",null)||[{i
 let roles=ld("roles1",null)||defRoles();
 let locs=ld("locs1",[]),moves=ld("moves1",[]),batches=ld("batches1",[]);
 let CFG=Object.assign({shop:"",addr:"",phone:"",cur:"$",psize:10,expWarn:30,cn:"杂 货 店",en:"Chap He Diam",tag:"Your Friendly Neighbourhood Provision Shop"},ld("settings1",{}));
-let ADMIN_CRED=ld("admin_cred1",null);
-let IS_LOGGED=!!ld("is_logged1",false);
 function syncItem(i){let qs=0,qw=0,ex="";batches.forEach(b=>{if(String(b.pid)!==String(i.id))return;qs+=b.qs;qw+=b.qw;if(b.qs+b.qw>0&&b.exp&&(!ex||b.exp<ex))ex=b.exp});i.qs=qs;i.qw=qw;i.qty=qs+qw;i.exp=ex}
 function norm(){items.forEach(i=>{i.cat=i.cat||"";i.unit=i.unit||"";i.note=i.note||"";if(!Array.isArray(i.supplierItems))i.supplierItems=[];i.qty=+i.qty||0;if(i.qs===undefined&&i.qw===undefined){i.qs=i.qty;i.qw=0}i.qs=Math.max(0,Math.round(+i.qs||0));i.qw=Math.max(0,Math.round(+i.qw||0));i.qty=i.qs+i.qw;i.box=Math.max(0,Math.round(+i.box||0));i.ls=i.ls||"";i.lw=i.lw||"";i.min=+i.min||0;i.mp=+i.mp||0;i.np=+i.np||0;if(i.counted===undefined)i.counted=null;if(i.on===undefined)i.on=true;i.sku=i.sku||"";i.copies=Math.max(1,Math.round(+i.copies||1));i.mfg=i.mfg||"";i.shelf=+i.shelf||0;i.exp=i.exp||"";i.warn=+i.warn||0;i.d1=i.d1||"";i.d2=i.d2||"";i.size=i.size||""});
  hist.forEach(h=>{if(!h.id)h.id=uid();if(!h.lines)h.lines=[];if(!h.loc)h.loc="shelf"});
@@ -609,7 +597,7 @@ function norm(){items.forEach(i=>{i.cat=i.cat||"";i.unit=i.unit||"";i.note=i.not
  let k=0;items.forEach(i=>{if(i.qs+i.qw>0&&!batches.some(b=>String(b.pid)===String(i.id)))batches.push({id:uid()+(k++),pid:i.id,exp:i.exp||"",mfg:i.mfg||"",qs:i.qs,qw:i.qw,rcv:"",ref:"初始库存"})});
  items.forEach(syncItem)}
 norm();
-const SAVE={items:()=>sv("labels2",items),sups:()=>sv("suppliers1",sups),hist:()=>sv("stockhist1",hist),cats:()=>sv("cats1",cats),staff:()=>sv("staff1",staff),roles:()=>sv("roles1",roles),locs:()=>sv("locs1",locs),moves:()=>sv("moves1",moves),batches:()=>sv("batches1",batches),pos:()=>sv("pos1",pos),cfg:()=>sv("settings1",CFG),cred:()=>sv("admin_cred1",ADMIN_CRED),logged:()=>sv("is_logged1",IS_LOGGED)};
+const SAVE={items:()=>sv("labels2",items),sups:()=>sv("suppliers1",sups),hist:()=>sv("stockhist1",hist),cats:()=>sv("cats1",cats),staff:()=>sv("staff1",staff),roles:()=>sv("roles1",roles),locs:()=>sv("locs1",locs),moves:()=>sv("moves1",moves),batches:()=>sv("batches1",batches),pos:()=>sv("pos1",pos),cfg:()=>sv("settings1",CFG)};
 const money=n=>CFG.cur+(+n||0).toFixed(2);
 const byId=(a,id)=>a.find(x=>String(x.id)===String(id));
 const nm=(a,id)=>(byId(a,id)||{}).name||"";
@@ -664,7 +652,7 @@ const MENU=[
 {id:"po",i:"🧾",z:"采购管理",e:"Purchasing",c:[{id:"po-list",z:"采购单",e:"Purchase orders"},{id:"po-edit",z:"新建采购单",e:"New order"},{id:"po-reorder",z:"补货建议",e:"Reorder"}]},
 {id:"stk",i:"📋",z:"库存管理",e:"Inventory",c:[{id:"stk-overview",z:"库存总览",e:"Overview"},{id:"stk-op",z:"库存操作",e:"Operations"},{id:"stk-count",z:"盘点作业",e:"Stocktake"},{id:"stk-loc",z:"库位管理",e:"Locations"},{id:"stk-expiry",z:"批次与效期",e:"Batches & expiry"},{id:"stk-alert",z:"库存预警",e:"Stock alerts"},{id:"stk-move",z:"库存流水",e:"Movements"},{id:"stk-hist",z:"盘点记录",e:"Count history"}]},
 {id:"rep",i:"📈",z:"报表中心",e:"Reports",c:[{id:"rep-stock",z:"库存报表",e:"Stock report"},{id:"rep-buy",z:"采购报表",e:"Purchase report"},{id:"rep-var",z:"盘点差异报表",e:"Variance report"},{id:"rep-margin",z:"商品毛利报表",e:"Margin report"},{id:"rep-exp",z:"效期报表",e:"Expiry report"}]},
-{id:"set",i:"⚙️",z:"设置",e:"Settings",c:[{id:"set-shop",z:"店铺信息",e:"Shop info"},{id:"set-pass",z:"修改管理员账号密码",e:"Change admin credentials"},{id:"set-lang",z:"语言与显示",e:"Language"},{id:"set-data",z:"数据导入导出",e:"Data backup"},{id:"set-about",z:"关于系统",e:"About"}]}];
+{id:"set",i:"⚙️",z:"设置",e:"Settings",c:[{id:"set-shop",z:"店铺信息",e:"Shop info"},{id:"set-lang",z:"语言与显示",e:"Language"},{id:"set-data",z:"数据导入导出",e:"Data backup"},{id:"set-about",z:"关于系统",e:"About"}]}];
 const DETAIL=new Set(["prod-detail","prod-edit","sup-detail","sup-edit","po-detail","po-edit","staff-detail","staff-edit","stk-detail"]);
 const PARENT={"prod-detail":"prod-list","sup-detail":"sup-list","po-detail":"po-list","staff-detail":"staff-list","stk-detail":"stk-hist"};
 const EDITP={"prod-edit":"prod-list","sup-edit":"sup-list","po-edit":"po-list","staff-edit":"staff-list"};
@@ -683,97 +671,9 @@ function renderSide(p,id){const act=actId(p,id);
  $("crumb").innerHTML=`${L(m1.z,m1.e)} › ${m1.c.length>1?L(m2.z,m2.e):""}${id&&EDITP[p]||PARENT[p]?sub:""}`.replace(/ › $/,"");
  const bn=[["home","🏠",L("首页","Home")],["prod-list","📦",L("商品","Products")],["stk-overview","📋",L("库存","Stock")],["po-list","🧾",L("采购","Orders")]];
  $("bnav").innerHTML=bn.map(b=>`<a data-go="${b[0]}" class="${find2(act)[0]===find2(b[0])[0]?"on":""}"><i>${b[1]}</i>${b[2]}</a>`).join("")+`<a data-act="drawer"><i>☰</i>${L("菜单","Menu")}</a>`}
-
-function syncAuthChrome(authed){
- $("langbtn").textContent=LANG==="zh"?"EN":"中文";
- const lb=$("logoutbtn");
- if(lb){
-  lb.style.display=authed?"inline-block":"none";
-  lb.textContent=L("登出","Logout");
- }
- const bb=$("burgerbtn");
- if(bb)bb.style.display=authed?"":"none";
- $("side").style.display=authed?"":"none";
- $("bnav").style.display=authed?"":"none";
- $("mask").classList.remove("show");
- $("side").classList.remove("open");
-}
-
-function renderSetupPage(){
- syncAuthChrome(false);
- $("crumb").innerHTML=`<b>${L("首次设置管理员","Initial Admin Setup")}</b>`;
- main(`<div class="card" id="auth_box" style="max-width:440px;margin:32px auto">
-  <h3>${L("设置管理员账号密码","Set Admin Credentials")}</h3>
-  <p class="muted">${L("首次使用系统，请先创建管理员账号和密码，保存后将保存在本机浏览器中。","First time using the system. Please create an admin username and password stored locally in your browser.")}</p>
-  <div class="fg">
-   ${F("setup_user","管理员账号","Admin Username","",{req:1,w:"full",ac:"username"})}
-   ${F("setup_pass","管理员密码","Admin Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
-   ${F("setup_pass2","确认管理员密码","Confirm Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
-  </div>
-  <div class="row" style="margin-top:14px">
-   <button class="btn pri" data-act="auth-setup">${L("保存并进入系统","Save & Continue")}</button>
-  </div>
- </div>`);
- const box=$("auth_box");
- if(box)box.onkeydown=e=>{if(e.key==="Enter")ACT["auth-setup"]()};
-}
-
-function renderLoginPage(){
- syncAuthChrome(false);
- $("crumb").innerHTML=`<b>${L("系统登录","Sign In")}</b>`;
- main(`<div class="card" id="auth_box" style="max-width:420px;margin:40px auto">
-  <h3>${esc(CFG.shop||L("杂货店管理系统","Shop Manager"))} · ${L("登录","Sign In")}</h3>
-  <p class="muted">${L("请输入管理员账号和密码","Enter your admin username and password")}</p>
-  <div class="fg">
-   ${F("login_user","管理员账号","Admin Username","",{req:1,w:"full",ac:"username"})}
-   ${F("login_pass","管理员密码","Admin Password","",{type:"password",req:1,w:"full",ac:"current-password"})}
-  </div>
-  <div class="row" style="margin-top:14px">
-   <button class="btn pri" data-act="auth-login">${L("登录","Sign In")}</button>
-  </div>
- </div>`);
- const box=$("auth_box");
- if(box)box.onkeydown=e=>{if(e.key==="Enter")ACT["auth-login"]()};
-}
-
-function render(top){
- revokeAllObjUrl();
- if(!ADMIN_CRED||!ADMIN_CRED.user||!ADMIN_CRED.pass){renderSetupPage();return}
- if(!IS_LOGGED){renderLoginPage();return}
- syncAuthChrome(true);
- const{p,id}=cur();renderSide(p,id);(PG[p]||PG.home)(id);hydrateImages($("main"));if(top)window.scrollTo(0,0);
-}
-
-ACT["auth-setup"]=()=>{
- const u=V("setup_user"),p1=V("setup_pass"),p2=V("setup_pass2");
- if(!u||!p1){toast(L("请填写管理员账号和密码","Enter admin username and password"));return}
- if(p1!==p2){toast(L("两次输入的密码不一致","Passwords do not match"));return}
- ADMIN_CRED={user:u,pass:p1};
- IS_LOGGED=true;
- SAVE.cred();SAVE.logged();
- toast(L("管理员账号已设置","Admin credentials saved"));
- render(true);
-};
-
-ACT["auth-login"]=()=>{
- const u=V("login_user"),p=V("login_pass");
- if(!u||!p){toast(L("请输入账号和密码","Enter username and password"));return}
- if(ADMIN_CRED&&u===ADMIN_CRED.user&&p===ADMIN_CRED.pass){
-  IS_LOGGED=true;
-  SAVE.logged();
-  toast(L("登录成功","Signed in"));
-  render(true);
- }else{
-  toast(L("账号或密码错误","Invalid username or password"));
- }
-};
-
-ACT["logout"]=()=>{
- IS_LOGGED=false;
- SAVE.logged();
- toast(L("已退出登录","Signed out"));
- render(true);
-};
+function render(top){revokeAllObjUrl();const{p,id}=cur();renderSide(p,id);$("langbtn").textContent=LANG==="zh"?"EN":"中文";PG[p](id);hydrateImages($("main"));if(top)window.scrollTo(0,0)}
+const main=h=>{$("main").innerHTML=h};
+const head=(t,r)=>`<div class="ph"><h2>${t}</h2><div class="row">${r||""}</div></div>`;
 
 /* ---------- generic list ---------- */
 function pager(key,n,pages,st){const b=(l,pg,dis)=>`<button class="btn sm" data-pgn="${key}|${pg}" ${dis?"disabled":""}>${l}</button>`;
@@ -797,6 +697,12 @@ function listPage(key,c){
 function mount(key,c,headHtml){const lp=listPage(key,c);main((headHtml||"")+lp.html);lp.paint()}
 
 /* ---------- forms ---------- */
+const F=(k,z,e,v,o)=>{o=o||{};const id="f_"+k,val=v==null?"":v;let inp;
+ if(o.type==="select")inp=`<select class="in" id="${id}">${o.opts.map(([ov,ol])=>`<option value="${esc(ov)}" ${String(ov)===String(val)?"selected":""}>${esc(ol)}</option>`).join("")}</select>`;
+ else if(o.type==="textarea")inp=`<textarea class="in" id="${id}" rows="3">${esc(val)}</textarea>`;
+ else inp=`<input class="in" id="${id}" type="${o.type||"text"}" ${o.step?`step="${o.step}"`:""} ${o.max?`maxlength="${o.max}"`:""} ${o.type==="number"?'min="0"':""} value="${esc(val)}">`;
+ return`<label class="fld ${o.w||""}"><span>${L(z,e)}${o.req?" *":""}</span>${inp}</label>`};
+const V=k=>{const e=$("f_"+k);return e?e.value.trim():""};
 const supOpts=()=>[["",L("— 无 —","— None —")],...sups.map(s=>[s.id,s.name])];
 const catOpts=()=>[["",L("— 未分类 —","— None —")],...cats.map(s=>[s.id,s.name])];
 const cf=(el,fn)=>{if(el.dataset.arm){fn();return}el.dataset.arm=1;const o=el.textContent;el.textContent=L("确认?","Sure?");setTimeout(()=>{el.dataset.arm="";el.textContent=o},3000)};
@@ -819,7 +725,7 @@ document.addEventListener("change",e=>{const t=e.target;
  if(t.dataset.f&&t.dataset.id){const i=byId(items,t.dataset.id);if(!i)return;const f=t.dataset.f;
   if(f==="counted")i.counted=t.value===""?null:Math.max(0,Math.round(+t.value));else if(f==="exp"||f==="mfg"||f==="ls"||f==="lw")i[f]=t.value;else if(f==="qs"||f==="qw"){const nv=Math.max(0,Math.round(+t.value||0)),d=nv-i[f];i[f]=nv;i.qty=i.qs+i.qw;if(d){logMove(i,"adjust",f==="qs"?d:0,f==="qw"?d:0,L("手动修改","Manual edit"));SAVE.moves()}}else i[f]=Math.max(0,Math.round(+t.value||0));
   SAVE.items();const c=cur().p;if(LST[c])LST[c].paint()}});
-function openDrawer(){if(!IS_LOGGED)return;$("side").classList.add("open");$("mask").classList.add("show")}
+function openDrawer(){$("side").classList.add("open");$("mask").classList.add("show")}
 function closeDrawer(){$("side").classList.remove("open");$("mask").classList.remove("show")}
 ACT["lst-reset"]=k=>{const st=S[k];st.q="";st.scope="all";st.flt={};st.pg=1;render()};
 ACT.bczoom=id=>{const[pid,idx]=String(id).split("|");const i=byId(items,pid);if(!i)return;const code=idx!=null&&i.supplierItems[+idx]?i.supplierItems[+idx].barcode:itemPrimaryCode(i);const z=$("zoom");z.innerHTML=`<div class="zbox"><div class="zt">${esc(pname(i))}</div><div class="zbc">${eanSvg(code)}</div><div class="zc">${esc(code)}</div><div class="muted">${L("点击任意处关闭","Tap anywhere to close")}</div></div>`;z.style.display="flex"};
@@ -1030,7 +936,7 @@ ACT["si-gen"]=idx=>{
  syncSupRowsFromDom();
  const allInStore=[];
  items.forEach(x=>itemCodes(x).forEach(cd=>{if(/^2\d{12}$/.test(cd))allInStore.push(+cd.slice(1,12))}));
- editSupItems.forEach(si=>{if(/^2\d{12}$/.test(si.barcode||""))allInStore.push(+si.barcode.slice(1,12))}));
+ editSupItems.forEach(si=>{if(/^2\d{12}$/.test(si.barcode||""))allInStore.push(+si.barcode.slice(1,12))});
  const mx=Math.max(0,...allInStore);
  const b="2"+String(mx+1).padStart(11,"0");
  let s=0;for(let k=0;k<12;k++)s+=(+b[k])*(k%2?3:1);
@@ -1073,7 +979,7 @@ ACT["prod-save"]=async id=>{
  let badCheck=false;
  for(const si of cleanedSupItems){
   if(!si.barcode)continue;
-  if(!/^[!-~]{1,48}$/.test(si.barcode)){toast(L("条码只能含字母、数字和常见符号(不含空格),最多 48 位","Barcode: letters, digits, common symbols (no spaces), max 48"));return}
+  if(!/^[\x21-\x7E]{1,48}$/.test(si.barcode)){toast(L("条码只能含字母、数字和常见符号(不含空格),最多 48 位","Barcode: letters, digits, common symbols (no spaces), max 48"));return}
   if(seenInForm.has(si.barcode)){toast(L("同一商品下存在重复条码: ","Duplicate barcode in same product: ")+si.barcode);return}
   seenInForm.add(si.barcode);
   const dup=items.find(x=>String(x.id)!==String(id)&&itemCodes(x).includes(si.barcode));
@@ -1478,403 +1384,257 @@ ACT["po-recv"]=id=>{const p=byId(pos,id);let any=0;
 /* reorder */
 const reRows=()=>items.filter(i=>i.min>0&&i.qty<=i.min).map(i=>({i,q:sugP(i)}));
 PG["po-reorder"]=()=>mount("po-reorder",{data:reRows,hay:r=>pname(r.i)+" "+itemSupNames(r.i).join(" "),cols:[{h:["商品","Product"],f:(r,t)=>pcell(r.i,t,"")},{h:["供应商","Supplier"],f:r=>{const sn=itemSupNames(r.i);return sn.length?esc(sn.join("、")):`<span class="tag r">${L("未指定","None")}</span>`}},{h:["库存","Stock"],f:r=>`${L("货架","Shelf")} ${r.i.qs} · ${L("仓库","WH")} ${r.i.qw}`},{h:["最低库存","Min"],cls:"num",f:r=>r.i.min},{h:["建议订货","Suggested"],f:r=>sugTxt(r.i)},{h:["单价/个","Cost/pc"],cls:"num",f:r=>money(itemCost(r.i))},{h:["金额","Amount"],cls:"num",f:r=>money(r.q*itemCost(r.i))}],
- pre:`<p class="muted" style="margin-top:0">${L("当前库存 ≤ 最低库存的商品,自动按供应商生成采购单草稿。","Items at or below minimum stock; drafts are grouped by supplier.")}</p>`,
- tool:`<button class="btn pri" data-act="re-make">⚡ ${L("按供应商生成采购单草稿","Generate draft POs")}</button>`},head(L("补货建议","Reorder")));
-ACT["re-make"]()=>{const byS={};reRows().forEach(({i,q})=>{const sids=itemSupIds(i);const k=sids[0]||"";(byS[k]=byS[k]||[]).push({i,q})});
- const ks=Object.keys(byS);if(!ks.length){toast(L("目前没有需要补货的商品","Nothing needs reorder"));return}
- const d=today();let n=0;ks.forEach(k=>{if(!k)return;const p={id:uid(),no:poNo(d),sup:k,date:d,note:L("补货建议自动生成","Auto-generated from reorder"),status:"draft",lines:byS[k].map(({i,q})=>{const se=itemEntryForSup(i,k);const c=(se&&se.cost>0)?se.cost:itemCost(i);const bc=(se&&se.barcode)?se.barcode:itemPrimaryCode(i);return i.box>1&&q>=i.box?{pid:i.id,barcode:bc,qty:Math.ceil(q/i.box),unit:"box",perBox:i.box,cost:c}:{pid:i.id,barcode:bc,qty:q,unit:"pc",perBox:i.box||1,cost:c}})};pos.push(p);n++});
- SAVE.pos();toast(n?L("已生成 "+n+" 张采购单草稿","Created "+n+" draft POs"):L("缺货商品尚未指定供应商","Assign suppliers to those products first"));go("po-list")};
+ pre:`<p class="muted" style="margin-top:0">${L("建议订货 = 2 × 最低库存 − 当前合计库存;设置了每箱个数的商品按整箱向上取整。需先给商品指定供应商。","Suggested = 2 × min − total stock, rounded up to whole boxes where a box size is set.")}</p>`,
+ tool:`<button class="btn pri" data-act="po-gen">${L("按供应商生成采购单草稿","Create draft orders")}</button>`},head(L("补货建议","Reorder suggestions")));
+ACT["po-gen"]=()=>{const g={};let n=0;reRows().forEach(r=>{const sids=itemSupIds(r.i);const sid=sids[0];if(!sid)return;(g[sid]=g[sid]||[]).push(r)});const ks=Object.keys(g);if(!ks.length){toast(L("没有可生成的商品(请先为商品指定供应商)","Nothing to create (assign suppliers first)"));return}
+ ks.forEach(k=>{const d=today();pos.push({id:uid()+n++,no:poNo(d),sup:k,date:d,note:"",status:"draft",lines:g[k].map(r=>{const se=itemEntryForSup(r.i,k),c=se.cost>0?se.cost:itemCost(r.i),bc=se.barcode||itemPrimaryCode(r.i);return r.i.box>1?{pid:r.i.id,barcode:bc,qty:Math.ceil(r.q/r.i.box),unit:"box",perBox:r.i.box,cost:c}:{pid:r.i.id,barcode:bc,qty:r.q,unit:"pc",perBox:1,cost:c}})})});SAVE.pos();toast(L("已生成 "+ks.length+" 张草稿","Created "+ks.length+" drafts"));go("po-list")};
+
+/* ===== PDF (drawn on canvas, embedded as JPEG pages — supports Chinese without font files) ===== */
+const PK=200/150;
+const loadImg=async src=>{if(!src)return null;let u=src,isBlob=false;if(!src.startsWith("data:")&&!src.startsWith("blob:")&&!src.startsWith("http")){const b=await ImgDB.get(src);if(!b)return null;u=URL.createObjectURL(b);isBlob=true}return await new Promise(r=>{const im=new Image();im.onload=()=>{if(isBlob)URL.revokeObjectURL(u);r(im)};im.onerror=()=>{if(isBlob)URL.revokeObjectURL(u);r(null)};im.src=u})};
+const FONT='"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Heiti SC",system-ui,sans-serif';
+
+async function poPdf(p){
+ const W=1240,H=1754,M=70,pages=[],RH=136;let c,x,y;
+ const np=()=>{c=document.createElement("canvas");c.width=Math.round(W*PK);c.height=Math.round(H*PK);x=c.getContext("2d");x.scale(PK,PK);x.fillStyle="#fff";x.fillRect(0,0,W,H);x.fillStyle="#111";x.textBaseline="top";pages.push(c);y=M};
+ const T=(t,px,xx,yy,o)=>{o=o||{};x.font=(o.b?"bold ":"")+px+"px "+FONT;x.fillStyle=o.col||"#111";x.textAlign=o.al||"left";x.fillText(String(t),xx,yy)};
+ const wrap=(t,px,mw,mx)=>{x.font=px+"px "+FONT;const out=[];let ln="";
+  for(const w of String(t).split(/(?<= )/)){if(x.measureText(ln+w).width<=mw){ln+=w;continue}
+   if(ln){out.push(ln);ln=""}
+   if(x.measureText(w).width<=mw){ln=w;continue}
+   for(const ch of w){if(x.measureText(ln+ch).width>mw&&ln){out.push(ln);ln=ch}else ln+=ch}}
+  if(ln)out.push(ln);return out.slice(0,mx||2)};
+ const sp=byId(sups,p.sup)||{};
+ const imgs=await Promise.all(p.lines.map(l=>loadImg(imgOf(byId(items,l.pid)||{}))));
+ const th=()=>{x.fillStyle="#121a55";x.fillRect(M,y,W-2*M,42);
+  [[L("#","#"),M+10,"left"],[L("商品名称","Product"),M+56,"left"],[L("条形码 (扫码收货)","Barcode"),M+500,"left"],[L("订购数量","Qty"),M+825,"right"],[L("单价","Cost"),M+955,"right"],[L("小计","Amount"),W-M-12,"right"]].forEach(([t,xx,al])=>T(t,21,xx,y+10,{b:1,col:"#fff",al}));y+=42};
+ np();
+ x.fillStyle="#121a55";x.fillRect(M,y,W-2*M,10);y+=24;
+ T(CFG.shop||L("采购单","Purchase order"),34,M,y,{b:1,col:"#121a55"});
+ T(L("采购单","PURCHASE ORDER"),32,W-M,y+2,{b:1,col:"#121a55",al:"right"});y+=46;
+ T([CFG.addr,CFG.phone].filter(Boolean).join("  ·  "),20,M,y,{col:"#555"});
+ T((p.no||L("草稿","DRAFT"))+"   "+p.date,22,W-M,y,{b:1,col:"#333",al:"right"});y+=44;
+ x.strokeStyle="#dde0e8";x.lineWidth=2;x.beginPath();x.moveTo(M,y);x.lineTo(W-M,y);x.stroke();y+=18;
+ const bx=(W-2*M-20)/2;x.fillStyle="#f3f4f8";x.fillRect(M,y,bx,104);x.fillRect(M+bx+20,y,bx,104);
+ T(L("供应商","SUPPLIER"),17,M+16,y+12,{b:1,col:"#1d2fa0"});T(sp.name||"—",24,M+16,y+36,{b:1});
+ T([sp.contact,sp.phone].filter(Boolean).join("  ·  "),19,M+16,y+70,{col:"#444"});
+ T(L("订单信息","ORDER INFO"),17,M+bx+36,y+12,{b:1,col:"#1d2fa0"});
+ T(L("单号: ","No.: ")+(p.no||L("草稿","Draft"))+"   "+L("日期: ","Date: ")+p.date,20,M+bx+36,y+38);
+ T(L("付款条件: ","Terms: ")+(sp.terms||"—"),19,M+bx+36,y+70,{col:"#444"});y+=124;
+ th();
+ p.lines.forEach((l,k)=>{if(y+RH>H-M-140){np();T((p.no||"")+" ("+L("续","cont.")+")",20,W-M,y,{col:"#666",al:"right"});y+=30;th()}
+  if(k%2){x.fillStyle="#f8f9fc";x.fillRect(M,y,W-2*M,RH)}
+  const it=byId(items,l.pid)||{},im=imgs[k],bc=poLineBarcode(l,p);
+  T(k+1,21,M+10,y+16,{col:"#666"});
+  x.strokeStyle="#dde0e8";x.lineWidth=1;x.strokeRect(M+48,y+16,96,96);
+  if(im){const r=Math.min(90/im.width,90/im.height),w=im.width*r,h=im.height*r;x.drawImage(im,M+48+(96-w)/2,y+16+(96-h)/2,w,h)}
+  const lns=wrap(pname(it)||"?",22,330,2);lns.forEach((t,j)=>T(t,22,M+156,y+16+j*28,{b:!j}));
+  const sub=[it.sku?"SKU "+it.sku:"",l.perBox>1?L("每箱 ","Box of ")+l.perBox+L(" 个"," pcs"):""].filter(Boolean).join(" · ");
+  if(sub)T(sub,17,M+156,y+18+lns.length*28,{col:"#666"});
+  if(bc){
+   const drawn=drawBarcodeCanvas(x,bc,M+500,y+14,210,74,17);
+   if(!drawn)T(bc,20,M+500,y+44,{col:"#222"});
+  }else{
+   T("—",20,M+500,y+44,{col:"#999"});
+  }
+  T(l.qty+" "+unitTxt(l),22,M+825,y+24,{b:1,al:"right"});
+  if(l.unit==="box")T("= "+lnPcs(l)+" "+L("个","pcs"),18,M+825,y+56,{col:"#666",al:"right"});
+  T(money(l.cost),21,M+955,y+36,{al:"right"});
+  T(money(lnPcs(l)*l.cost),23,W-M-12,y+34,{b:1,al:"right"});
+  x.strokeStyle="#e5e7ef";x.beginPath();x.moveTo(M,y+RH);x.lineTo(W-M,y+RH);x.stroke();y+=RH});
+ y+=14;const boxes=p.lines.filter(l=>l.unit==="box").reduce((a,l)=>a+l.qty,0),pcs=p.lines.reduce((a,l)=>a+lnPcs(l),0);
+ x.fillStyle="#f3f4f8";x.fillRect(M,y,W-2*M,62);
+ T(L("共 ","Total ")+p.lines.length+L(" 项 · "," lines · ")+(boxes?boxes+L(" 箱 · "," boxes · "):"")+pcs+L(" 个"," pcs"),22,M+18,y+19);
+ T(L("合计金额: ","TOTAL: ")+money(poTotal(p)),28,W-M-18,y+15,{b:1,col:"#121a55",al:"right"});y+=82;
+ if(p.note){wrap(L("备注: ","Note: ")+p.note,20,W-2*M,3).forEach(t=>{T(t,20,M,y,{col:"#444"});y+=28})}
+ pages.forEach((pg,i)=>{const g=pg.getContext("2d");g.font="17px "+FONT;g.fillStyle="#888";g.textAlign="center";g.fillText((i+1)+" / "+pages.length,W/2,H-44)});
+ await savePdf(pages,(p.no||"purchase-order")+".pdf")
+}
+
+async function prodPdf(list){const W=1240,H=1754,M=56,G=16,COLS=3,CW=(W-2*M-G*(COLS-1))/COLS,CH=366,pages=[];let c,x,y,col=0;
+ const np=()=>{c=document.createElement("canvas");c.width=Math.round(W*PK);c.height=Math.round(H*PK);x=c.getContext("2d");x.scale(PK,PK);x.fillStyle="#fff";x.fillRect(0,0,W,H);x.textBaseline="top";pages.push(c);y=M;col=0};
+ const T=(t,px,xx,yy,o)=>{o=o||{};x.font=(o.b?"bold ":"")+px+"px "+FONT;x.fillStyle=o.col||"#111";x.textAlign=o.al||"left";x.fillText(String(t),xx,yy)};
+ const wrap=(t,px,mw,mx)=>{x.font=px+"px "+FONT;const out=[];let ln="";
+  for(const w of String(t).split(/(?<= )/)){if(x.measureText(ln+w).width<=mw){ln+=w;continue}
+   if(ln){out.push(ln);ln=""}
+   if(x.measureText(w).width<=mw){ln=w;continue}
+   for(const ch of w){if(x.measureText(ln+ch).width>mw&&ln){out.push(ln);ln=ch}else ln+=ch}}
+  if(ln)out.push(ln);return out.slice(0,mx||2)};
+ np();
+ T((CFG.shop||L("商品目录","Product catalog"))+" — "+L("商品列表","Products"),30,M,y,{b:1,col:"#121a55"});
+ T(today()+" · "+L("共 "+list.length+" 个商品",list.length+" products"),20,W-M,y+8,{col:"#666",al:"right"});y+=50;
+ x.strokeStyle="#121a55";x.lineWidth=3;x.beginPath();x.moveTo(M,y);x.lineTo(W-M,y);x.stroke();y+=18;
+ for(let k=0;k<list.length;k++){if(col===0&&y+CH>H-M-40)np();
+  const it=list[k],cx=M+col*(CW+G),cy=y,im=await loadImg(imgOf(it));
+  x.strokeStyle="#cfd4e2";x.lineWidth=1.5;x.strokeRect(cx,cy,CW,CH);
+  const ih=164;x.fillStyle="#f8f9fc";x.fillRect(cx+1,cy+1,CW-2,ih);
+  if(im){const r=Math.min((CW-24)/im.width,(ih-16)/im.height),w=im.width*r,h=im.height*r;x.drawImage(im,cx+(CW-w)/2,cy+(ih-h)/2,w,h)}
+  else T("NO IMAGE",18,cx+CW/2,cy+ih/2-9,{col:"#aaa",al:"center"});
+  let ty=cy+ih+10;
+  wrap(pname(it),20,CW-24,2).forEach(t=>{T(t,20,cx+12,ty,{b:1});ty+=25});
+  const sub=[it.sku?"SKU "+it.sku:"",nm(cats,it.cat)].filter(Boolean).join(" · ");
+  if(sub){T(sub,15,cx+12,ty,{col:"#666"});ty+=21}
+  x.fillStyle="#c8161d";x.fillRect(cx+12,cy+CH-102,166,44);
+  T("MEMBER",12,cx+20,cy+CH-98,{b:1,col:"#ffe600"});T(money(it.mp),22,cx+20,cy+CH-82,{b:1,col:"#fff"});
+  T(L("非会员 ","Non-member ")+money(it.np),16,cx+186,cy+CH-86,{col:"#333"});
+  const c0=itemPrimaryCode(it);
+  if(c0){
+   const drawn=drawBarcodeCanvas(x,c0,cx+12,cy+CH-50,CW-24,28,14);
+   if(!drawn)T(c0,15,cx+12,cy+CH-34,{col:"#444"});
+  }
+  col++;if(col>=COLS){col=0;y+=CH+G}}
+ pages.forEach((pg,i)=>{const g=pg.getContext("2d");g.font="17px "+FONT;g.fillStyle="#888";g.textAlign="center";g.fillText((i+1)+" / "+pages.length,W/2,H-36)});
+ await savePdf(pages,"products-"+today()+".pdf")}
+async function savePdf(pages,name){const enc=new TextEncoder(),parts=[],offs=[0];let n=0;
+ const add=u=>{parts.push(u);n+=u.length},str=s=>add(enc.encode(s)),N=pages.length;
+ const imgs=await Promise.all(pages.map(c=>new Promise(r=>c.toBlob(b=>b.arrayBuffer().then(a=>r({u:new Uint8Array(a),w:c.width,h:c.height})),"image/jpeg",.92))));
+ const obj=i=>{offs[i]=n;str(i+" 0 obj\n")},end=()=>str("\nendobj\n");
+ str("%PDF-1.4\n%\xFF\xFF\xFF\xFF\n");
+ obj(1);str("<< /Type /Catalog /Pages 2 0 R >>");end();
+ obj(2);str("<< /Type /Pages /Kids ["+imgs.map((_,i)=>(3+i*3)+" 0 R").join(" ")+"] /Count "+N+" >>");end();
+ imgs.forEach((im,i)=>{const p=3+i*3,ct=p+1,xo=p+2;
+  obj(p);str(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${i} ${xo} 0 R >> >> /Contents ${ct} 0 R >>`);end();
+  const s=`q 595 0 0 842 0 0 cm /Im${i} Do Q\n`;obj(ct);str(`<< /Length ${s.length} >>\nstream\n${s}endstream`);end();
+  obj(xo);str(`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.u.length} >>\nstream\n`);add(im.u);str("\nendstream");end()});
+ const xp=n;str("xref\n0 "+(3+N*3)+"\n0000000000 65535 f \n");
+ for(let i=1;i<3+N*3;i++)str(String(offs[i]).padStart(10,"0")+" 00000 n \n");
+ str(`trailer\n<< /Size ${3+N*3} /Root 1 0 R >>\nstartxref\n${xp}\n%%EOF`);
+ const out=new Uint8Array(n);let o=0;parts.forEach(u=>{out.set(u,o);o+=u.length});
+ try{await saveFile(name,out,"application/pdf");toast(L("已生成 ","Saved ")+name)}catch(e){toast(e&&(e.code==="declined"||e.name==="AbortError")?L("已取消","Cancelled"):L("生成 PDF 失败","PDF failed"))}}
+ACT["po-pdf"]=async id=>{toast(L("正在生成 PDF…","Building PDF…"));await poPdf(byId(pos,id))};
+ACT["po-pdf-draft"]=async()=>{const p=Object.assign({},poD,{sup:V("sup")||poD.sup,date:V("date")||poD.date,note:V("note")});if(!p.lines.length){toast(L("请先添加商品","Add products first"));return}toast(L("正在生成 PDF…","Building PDF…"));await poPdf(p)};
+ACT["prod-pdf"]=async()=>{const r=LST["prod-list"].rows();if(!r.length){toast(L("没有可导出的商品","No products"));return}toast(L("正在生成 PDF(共 "+r.length+" 个商品)…","Building PDF ("+r.length+" products)…"));await prodPdf(r)};
 
 /* ===== reports ===== */
-PG["rep-stock"]=()=>mount("rep-stock",{fields:pFields(),filters:pFilters(),data:()=>items,hay:i=>pname(i)+" "+itemCodes(i).join(" ")+" "+itemSupNames(i).join(" "),tabs:TABS["rep-stock"](),
- cols:[{h:["商品","Product"],f:(i,t)=>`<a class="lnk" data-go="prod-detail-${i.id}">${hl(pname(i),t)}</a>`},{h:["供应商","Supplier"],f:i=>esc(itemSupNames(i).join("、"))},{h:["货架","Shelf"],cls:"num",f:i=>i.qs},{h:["仓库","Warehouse"],cls:"num",f:i=>i.qw},{h:["合计","Total"],cls:"num",f:i=>i.qty},{h:["最低库存","Min"],cls:"num",f:i=>i.min},{h:["单位成本","Cost"],cls:"num",f:i=>money(itemCost(i))},{h:["库存成本","Stock cost"],cls:"num",f:i=>money(i.qty*itemCost(i))},{h:["零售值","Retail"],cls:"num",f:i=>money(i.qty*i.np)},{h:["状态","Status"],f:tagS}],
- tool:`<button class="btn" data-act="r-stk">⬇ ${L("导出 Excel","Export Excel")}</button>`,
- after:r=>{const c=r.reduce((a,i)=>a+i.qty*itemCost(i),0),v=r.reduce((a,i)=>a+i.qty*i.np,0);$("r_s").innerHTML=kpi(L("商品数","Products"),r.length)+kpi(L("总数量","Total qty"),r.reduce((a,i)=>a+i.qty,0))+kpi(L("库存成本","Stock cost"),money(c))+kpi(L("零售值","Retail"),money(v))}},head(L("库存报表","Stock report"))+`<div class="kpis" id="r_s"></div>`);
-ACT["r-stk"]=()=>outXlsx(LST["rep-stock"].rows().map(i=>[pname(i),itemCodes(i).join(", "),itemSupNames(i).join(" / "),i.qs,i.qw,i.qty,i.min,itemCost(i),i.qty*itemCost(i),i.qty*i.np,stat(i)]),"stock-report.xlsx",["Product","Barcodes","Suppliers","Shelf","Warehouse","Total","Min","Cost","Stock Cost","Retail Value","Status"]);
-
-PG["rep-buy"]=()=>{const st=S["rep-buy"]||(S["rep-buy"]={f:"",t:"",q:"",pg:1,size:CFG.psize||10});
- const rows=()=>pos.filter(p=>(!st.f||p.date>=st.f)&&(!st.t||p.date<=st.t)&&(!st.q||nm(sups,p.sup).toLowerCase().includes(st.q.toLowerCase())||p.no.toLowerCase().includes(st.q.toLowerCase()))).sort((a,b)=>b.id-a.id);
- main(head(L("采购报表","Purchase report"))+`<div class="card"><div class="tb"><input class="in" id="rb_q" placeholder="${L("供应商 / 单号","Supplier / PO no.")}" value="${esc(st.q)}"><input class="in sm" type="date" id="rb_f" value="${esc(st.f)}"><input class="in sm" type="date" id="rb_t" value="${esc(st.t)}"><button class="btn" data-act="r-buy">⬇ ${L("导出 Excel","Export Excel")}</button></div><div class="kpis" id="rb_k"></div><div id="rb_w"></div></div>`);
- const paint=()=>{const r=rows(),val=r.filter(p=>p.status!=="cancelled").reduce((a,p)=>a+poTotal(p),0);
-  $("rb_k").innerHTML=kpi(L("单据数","Orders"),r.length)+kpi(L("采购金额(不含取消)","Amount"),money(val))+kpi(L("已入库","Received"),r.filter(p=>p.status==="received").length);
-  $("rb_w").innerHTML=r.length?`<div class="tw"><table class="rt"><thead><tr><th>${L("单号","No.")}</th><th>${L("供应商","Supplier")}</th><th>${L("日期","Date")}</th><th class="num">${L("金额","Amount")}</th><th>${L("状态","Status")}</th></tr></thead><tbody>${r.map(p=>`<tr><td data-label="${L("单号","No.")}"><a class="lnk" data-go="po-detail-${p.id}">${esc(p.no)}</a></td><td data-label="${L("供应商","Supplier")}">${esc(nm(sups,p.sup))}</td><td data-label="${L("日期","Date")}">${esc(p.date)}</td><td class="num" data-label="${L("金额","Amount")}">${money(poTotal(p))}</td><td data-label="${L("状态","Status")}">${tagP(p.status)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">${L("暂无数据","No data")}</div>`};
- paint();["rb_q","rb_f","rb_t"].forEach(id=>$(id).oninput=$(id).onchange=()=>{st.q=$("rb_q").value;st.f=$("rb_f").value;st.t=$("rb_t").value;paint()});
- ACT["r-buy"]=()=>outXlsx(rows().map(p=>[p.no,nm(sups,p.sup),p.date,poTotal(p),p.status]),"purchase-report.xlsx",["PO No","Supplier","Date","Amount","Status"])};
-
-PG["rep-var"]=()=>{const all=[];hist.forEach(h=>h.lines.forEach(l=>{if(l.after!==l.before)all.push({d:h.d,loc:h.loc,name:l.name,code:l.code,before:l.before,after:l.after,diff:l.after-l.before})}));
- mount("rep-var",{data:()=>all,hay:x=>x.name+" "+x.code+" "+x.d,cols:[{h:["时间","Time"],f:x=>esc(x.d)},{h:["位置","Location"],f:x=>x.loc==="wh"?L("仓库","Warehouse"):L("货架","Shelf")},{h:["商品","Product"],f:(x,t)=>hl(x.name,t)},{h:["盘点前","Before"],cls:"num",f:x=>x.before},{h:["盘点后","After"],cls:"num",f:x=>x.after},{h:["差异","Diff"],cls:"num",f:x=>dl(x.diff)}],
-  tool:`<button class="btn" data-act="r-var">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(L("盘点差异报表","Variance report")));
- ACT["r-var"]=()=>outXlsx(LST["rep-var"].rows().map(x=>[x.d,x.loc==="wh"?"Warehouse":"Shelf",x.name,x.code,x.before,x.after,x.diff]),"variance-report.xlsx",["Time","Location","Product","Barcode","Before","After","Diff"])};
-
-PG["rep-margin"]=()=>{const mg=i=>i.mp-itemCost(i),pct=i=>i.mp?Math.round(mg(i)/i.mp*100):0;
- mount("rep-margin",{fields:pFields(),filters:pFilters(),data:()=>items,hay:i=>pname(i)+" "+itemCodes(i).join(" ")+" "+itemSupNames(i).join(" "),sort:(a,b)=>pct(b)-pct(a),
- cols:[{h:["商品","Product"],f:(i,t)=>`<a class="lnk" data-go="prod-detail-${i.id}">${hl(pname(i),t)}</a>`},{h:["供应商","Supplier"],f:i=>esc(itemSupNames(i).join("、"))},{h:["会员价","Member"],cls:"num",f:i=>money(i.mp)},{h:["非会员价","Non-member"],cls:"num",f:i=>money(i.np)},{h:["参考成本","Cost"],cls:"num",f:i=>money(itemCost(i))},{h:["毛利(会员)","Margin"],cls:"num",f:i=>money(mg(i))},{h:["毛利率","Margin %"],cls:"num",f:i=>pct(i)+"%"}],
-  tool:`<button class="btn" data-act="r-mg">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(L("商品毛利报表","Margin report")));
- ACT["r-mg"]=()=>outXlsx(LST["rep-margin"].rows().map(i=>[pname(i),itemCodes(i).join(", "),itemSupNames(i).join(" / "),i.mp,i.np,itemCost(i),mg(i),pct(i)+"%"]),"margin-report.xlsx",["Product","Barcodes","Suppliers","Member Price","Non-member Price","Cost","Margin","Margin %"])};
-
-PG["rep-exp"]=()=>{const list=batches.filter(b=>b.qs+b.qw>0&&b.exp).sort(byExp);
- mount("rep-exp",{fields:pFields(bItem),filters:pFilters(bItem),data:()=>list,hay:b=>{const i=bItem(b);return pname(i)+" "+itemCodes(i).join(" ")+" "+itemSupNames(bItem(b)).join(" ")+" "+b.exp},tabs:TABS["rep-exp"](),
- cols:[{h:["商品","Product"],f:(b,t)=>{const i=bItem(b);return`<a class="lnk" data-go="prod-detail-${i.id}">${hl(pname(i),t)}</a>`}},{h:["供应商","Supplier"],f:b=>esc(itemSupNames(bItem(b)).join("、"))},{h:["货架","Shelf"],cls:"num",f:b=>b.qs},{h:["仓库","Warehouse"],cls:"num",f:b=>b.qw},{h:["合计","Total"],cls:"num",f:b=>b.qs+b.qw},{h:["到期日期","Expiry"],f:b=>esc(b.exp)},{h:["剩余天数","Days left"],cls:"num",f:b=>dleftD(b.exp)},{h:["效期状态","Status"],f:bTag},{h:["库存成本","Stock cost"],cls:"num",f:b=>money((b.qs+b.qw)*itemCost(bItem(b)))}],
-  tool:`<button class="btn" data-act="r-exp">⬇ ${L("导出 Excel","Export Excel")}</button>`,
-  after:r=>{const q=r.reduce((a,b)=>a+b.qs+b.qw,0),c=r.reduce((a,b)=>a+(b.qs+b.qw)*itemCost(bItem(b)),0);$("r_e").innerHTML=kpi(L("批次数","Batches"),r.length)+kpi(L("涉及库存","Qty"),q)+kpi(L("涉及成本","Stock cost"),money(c))}},head(L("效期报表","Expiry report"))+`<div class="kpis" id="r_e"></div>`);
- ACT["r-exp"]=()=>outXlsx(LST["rep-exp"].rows().map(b=>{const i=bItem(b);return[pname(i),itemCodes(i).join(", "),itemSupNames(i).join(" / "),b.qs,b.qw,b.qs+b.qw,b.exp,dleftD(b.exp),bExpS(b),(b.qs+b.qw)*itemCost(i)]}),"expiry-report.xlsx",["Product","Barcodes","Suppliers","Shelf","Warehouse","Total","Expiry","Days Left","Status","Stock Cost"])};
+PG["rep-stock"]=()=>{const r=items;const sv_=r.reduce((a,i)=>a+i.qty*itemCost(i),0),rv=r.reduce((a,i)=>a+i.qty*i.np,0);
+ mount("rep-stock",{fields:pFields(),filters:pFilters(),data:()=>items,hay:i=>pname(i)+" "+itemCodes(i).join(" ")+" "+itemSupNames(i).join(" "),tabs:TABS["rep-stock"](),cols:[{h:["商品","Product"],f:(i,t)=>hl(pname(i),t)},{h:["分类","Category"],f:i=>esc(nm(cats,i.cat))},{h:["货架","Shelf"],cls:"num",f:i=>i.qs},{h:["仓库","WH"],cls:"num",f:i=>i.qw},{h:["合计","Total"],cls:"num",f:i=>i.qty},{h:["成本","Cost"],cls:"num",f:i=>money(itemCost(i))},{h:["库存成本","Stock cost"],cls:"num",f:i=>money(i.qty*itemCost(i))},{h:["零售值","Retail"],cls:"num",f:i=>money(i.qty*i.np)},{h:["状态","Status"],f:tagS}],
+ tool:`<button class="btn" data-act="rep-stock-exp">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(L("库存报表","Stock report"))+`<div class="kpis">${kpi(L("SKU 数","SKUs"),r.length)}${kpi(L("货架件数","Shelf pcs"),r.reduce((a,i)=>a+i.qs,0))}${kpi(L("仓库件数","WH pcs"),r.reduce((a,i)=>a+i.qw,0))}${kpi(L("总成本","Total cost"),money(sv_))}${kpi(L("总零售值","Total retail"),money(rv))}</div>`)};
+ACT["rep-stock-exp"]=()=>outXlsx(LST["rep-stock"].rows().map(i=>[pname(i),itemPrimaryCode(i),nm(cats,i.cat),i.qs,i.qw,i.qty,itemCost(i),+(i.qty*itemCost(i)).toFixed(2),+(i.qty*i.np).toFixed(2)]),"stock-report.xlsx",["Product","Barcode","Category","Shelf","Warehouse","Total","Cost","Stock Cost","Retail Value"]);
+PG["rep-buy"]=()=>{const d1=S.rb1||"",d2=S.rb2||"";const flt=()=>pos.filter(p=>(p.status==="ordered"||p.status==="received")&&(!d1||p.date>=d1)&&(!d2||p.date<=d2));
+ const rows=flt(),tot=rows.reduce((a,p)=>a+poTotal(p),0),pcs=rows.reduce((a,p)=>a+p.lines.reduce((b,l)=>b+lnPcs(l),0),0);
+ const lp=listPage("rep-buy",{data:flt,hay:p=>p.no+" "+nm(sups,p.sup),sort:(a,b)=>b.id-a.id,cols:[{h:["单号","No."],f:p=>`<a class="lnk" data-go="po-detail-${p.id}">${esc(p.no)}</a>`},{h:["供应商","Supplier"],f:p=>esc(nm(sups,p.sup))},{h:["日期","Date"],f:p=>esc(p.date)},{h:["件数","Pieces"],cls:"num",f:p=>p.lines.reduce((a,l)=>a+lnPcs(l),0)},{h:["金额","Amount"],cls:"num",f:p=>money(poTotal(p))},{h:["状态","Status"],f:p=>tagP(p.status)}],tool:`<button class="btn" data-act="rep-buy-exp">⬇ ${L("导出 Excel","Export Excel")}</button>`});
+ main(head(L("采购报表","Purchase report"))+`<div class="card"><div class="row"><label class="muted">${L("从","From")} <input class="in sm" type="date" id="rb1" value="${esc(d1)}"></label><label class="muted">${L("到","To")} <input class="in sm" type="date" id="rb2" value="${esc(d2)}"></label><button class="btn sm" data-act="rb-clr">${L("清空","Clear")}</button></div></div><div class="kpis">${kpi(L("订单数","Orders"),rows.length)}${kpi(L("采购总件数","Pieces"),pcs)}${kpi(L("采购总金额","Total spend"),money(tot))}</div>`+lp.html);lp.paint()};
+document.addEventListener("change",e=>{if(e.target.id==="rb1"||e.target.id==="rb2"){S[e.target.id]=e.target.value;render()}});
+ACT["rb-clr"]=()=>{S.rb1="";S.rb2="";render()};
+ACT["rep-buy-exp"]=()=>outXlsx(LST["rep-buy"].rows().map(p=>[p.no,nm(sups,p.sup),p.date,p.lines.reduce((a,l)=>a+lnPcs(l),0),+poTotal(p).toFixed(2),POST[p.status][1]]),"purchase-report.xlsx",["PO No","Supplier","Date","Pieces","Amount","Status"]);
+PG["rep-var"]=()=>{const m={};hist.forEach(h=>h.lines.forEach(l=>{const d=l.after-l.before;if(!d)return;const x=m[l.pid]||(m[l.pid]={name:l.name,code:l.code,cnt:0,net:0,abs:0});x.cnt++;x.net+=d;x.abs+=Math.abs(d)}));const arr=Object.values(m).sort((a,b)=>b.abs-a.abs);
+ mount("rep-var",{data:()=>arr,hay:x=>x.name+" "+x.code,cols:[{h:["商品","Product"],f:(x,t)=>hl(x.name,t)},{h:["条码","Barcode"],f:x=>esc(x.code)},{h:["差异次数","Times"],cls:"num",f:x=>x.cnt},{h:["累计净差异","Net diff"],cls:"num",f:x=>x.net},{h:["累计绝对差异","Abs diff"],cls:"num",f:x=>x.abs}],tool:`<button class="btn" data-act="rep-var-exp">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(L("盘点差异报表","Variance report"))+`<div class="kpis">${kpi(L("盘点次数","Stocktakes"),hist.length)}${kpi(L("有差异商品","Products with diff"),arr.length)}${kpi(L("累计绝对差异","Total abs diff"),arr.reduce((a,x)=>a+x.abs,0))}</div>`)};
+ACT["rep-var-exp"]=()=>outXlsx(LST["rep-var"].rows().map(x=>[x.name,x.code,x.cnt,x.net,x.abs]),"variance-report.xlsx",["Product","Barcode","Times","Net","Abs"]);
+PG["rep-margin"]=()=>{const rows=items.map(i=>{const c=itemCost(i);return{i,mg:i.mp-c,pct:i.mp?(i.mp-c)/i.mp*100:0}}).sort((a,b)=>a.pct-b.pct);
+ mount("rep-margin",{fields:pFields(r=>r.i),filters:pFilters(r=>r.i),data:()=>rows,hay:r=>pname(r.i),cols:[{h:["商品","Product"],f:(r,t)=>hl(pname(r.i),t)},{h:["成本","Cost"],cls:"num",f:r=>money(itemCost(r.i))},{h:["会员价","Member"],cls:"num",f:r=>money(r.i.mp)},{h:["毛利","Margin"],cls:"num",f:r=>money(r.mg)},{h:["毛利率","Margin %"],cls:"num",f:r=>r.pct.toFixed(1)+"%"},{h:["库存","Stock"],cls:"num",f:r=>r.i.qty},{h:["潜在毛利","Stock margin"],cls:"num",f:r=>money(r.mg*r.i.qty)}],tool:`<button class="btn" data-act="rep-mg-exp">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(L("商品毛利报表","Margin report")))};
+ACT["rep-mg-exp"]=()=>outXlsx(LST["rep-margin"].rows().map(r=>[pname(r.i),itemCost(r.i),r.i.mp,+r.mg.toFixed(2),+r.pct.toFixed(1),r.i.qty,+(r.mg*r.i.qty).toFixed(2)]),"margin-report.xlsx",["Product","Cost","Member Price","Margin","Margin %","Stock","Stock Margin"]);
+PG["rep-exp"]=()=>{const b=batches.filter(x=>x.qs+x.qw>0&&x.exp);const ex=b.filter(x=>bExpS(x)==="expired"),sn=b.filter(x=>bExpS(x)==="soon");const sumQ=a=>a.reduce((s,x)=>s+x.qs+x.qw,0);
+ mount("rep-exp",{fields:pFields(bItem),filters:pFilters(bItem),data:()=>b,sort:byExp,hay:x=>pname(bItem(x))+" "+itemCodes(bItem(x)).join(" ")+" "+x.ref,tabs:TABS["rep-exp"](),
+ cols:[{h:["商品","Product"],f:(x,t)=>hl(pname(bItem(x)),t)},{h:["来源","Source"],f:x=>esc(x.ref||x.rcv)},{h:["到期日期","Expiry"],f:x=>esc(x.exp)},{h:["剩余天数","Days left"],cls:"num",f:x=>dleftD(x.exp)},{h:["状态","Status"],f:bTag},{h:["货架","Shelf"],cls:"num",f:x=>x.qs},{h:["仓库","WH"],cls:"num",f:x=>x.qw},{h:["库存成本","Stock cost"],cls:"num",f:x=>money((x.qs+x.qw)*itemCost(bItem(x)))}],
+ tool:`<button class="btn" data-act="rep-exp-out">⬇ ${L("导出 Excel","Export Excel")}</button>`},head(L("效期报表","Expiry report"))+`<div class="kpis">${kpi(L("已过期批次","Expired batches"),ex.length,sumQ(ex)+L(" 件"," pcs"))}${kpi(L("临期批次","Expiring batches"),sn.length,sumQ(sn)+L(" 件"," pcs"))}${kpi(L("已过期库存成本","Expired cost"),money(ex.reduce((a,x)=>a+(x.qs+x.qw)*itemCost(bItem(x)),0)))}</div>`)};
+ACT["rep-exp-out"]=()=>outXlsx(LST["rep-exp"].rows().map(x=>{const i=bItem(x);return[pname(i),itemPrimaryCode(i),x.ref,x.mfg,x.exp,dleftD(x.exp),x.qs,x.qw,+((x.qs+x.qw)*itemCost(i)).toFixed(2)]}),"expiry-report.xlsx",["Product","Barcode","Source","Production","Expiry","Days Left","Shelf","Warehouse","Stock Cost"]);
 
 /* ===== settings ===== */
-PG["set-shop"]=()=>main(head(L("店铺信息","Shop info"))+`<div class="card"><div class="fg">${F("shop","店铺名称","Shop name",CFG.shop,{w:"full"})}${F("addr","地址","Address",CFG.addr,{w:"full"})}${F("phone","电话","Phone",CFG.phone)}${F("cur","货币符号","Currency symbol",CFG.cur)}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="set-shop-save">${L("保存","Save")}</button></div></div>`);
-ACT["set-shop-save"]=()=>{CFG.shop=V("shop");CFG.addr=V("addr");CFG.phone=V("phone");CFG.cur=V("cur")||"$";SAVE.cfg();toast(L("已保存","Saved"));render()};
+PG["set-shop"]=()=>main(head(L("店铺信息","Shop info"))+`<div class="card"><div class="fg">${F("shop","店铺名称","Shop name",CFG.shop)}${F("phone","电话","Phone",CFG.phone)}${F("addr","地址","Address",CFG.addr,{w:"full"})}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="set-save">${L("保存","Save")}</button></div></div>`);
+ACT["set-save"]=()=>{CFG.shop=V("shop");CFG.phone=V("phone");CFG.addr=V("addr");SAVE.cfg();toast(L("已保存","Saved"));render()};
+PG["set-lang"]=()=>main(head(L("语言与显示","Language & display"))+`<div class="card"><div class="fg">${F("lg","界面语言","Language",LANG,{type:"select",opts:[["zh","中文"],["en","English"]]})}${F("ps","列表每页条数","Rows per page",CFG.psize,{type:"select",opts:[[5,5],[10,10],[15,15],[20,20]]})}${F("ew","临期默认提前天数","Default expiry warning (days)",CFG.expWarn,{type:"number"})}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="set-disp">${L("保存","Save")}</button></div></div>`);
+ACT["set-disp"]=()=>{LANG=V("lg");try{localStorage.setItem("lang1",LANG)}catch(e){}CFG.psize=+V("ps")||10;CFG.expWarn=Math.max(1,Math.round(+V("ew")||30));SAVE.cfg();buildModal();toast(L("已保存","Saved"));render()};
 
-PG["set-pass"]=()=>main(head(L("修改管理员账号密码","Change Admin Credentials"))+`<div class="card" style="max-width:480px">
- <p class="muted">${L("修改成功后将自动退出登录，请使用新账号密码重新登录。","You will be signed out automatically after updating credentials.")}</p>
- <div class="fg">
-  ${F("cur_pass","当前密码","Current Password","",{type:"password",req:1,w:"full",ac:"current-password"})}
-  ${F("new_user","新管理员账号","New Admin Username",ADMIN_CRED?ADMIN_CRED.user:"",{req:1,w:"full",ac:"username"})}
-  ${F("new_pass","新管理员密码","New Admin Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
-  ${F("new_pass2","确认新密码","Confirm New Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
- </div>
- <div class="row" style="margin-top:14px">
-  <button class="btn pri" data-act="set-pass-save">${L("保存并登出","Save & Sign Out")}</button>
- </div>
-</div>`);
-ACT["set-pass-save"]=()=>{
- const cp=V("cur_pass"),nu=V("new_user"),np1=V("new_pass"),np2=V("new_pass2");
- if(!cp||!nu||!np1){toast(L("请填写完整信息","Please fill in all required fields"));return}
- if(!ADMIN_CRED||cp!==ADMIN_CRED.pass){toast(L("当前密码错误","Current password is incorrect"));return}
- if(np1!==np2){toast(L("两次输入的新密码不一致","New passwords do not match"));return}
- ADMIN_CRED={user:nu,pass:np1};
- IS_LOGGED=false;
- SAVE.cred();SAVE.logged();
- toast(L("密码已修改，请重新登录","Password updated, please sign in again"));
- render(true);
+PG["set-data"]=()=>main(head(L("数据导入导出","Data backup"))+`
+ <div class="card"><h3>${L("完整数据备份与恢复 (推荐)","Full Backup & Restore (Recommended)")}</h3>
+ <p class="muted">${L("导出包含全部业务数据以及 IndexedDB 内存储的高清商品图片的完整 ZIP 备份包。导入时支持 .zip 完整包或旧版纯文本 .json 备份文件。","Exports a complete ZIP archive containing all business data and all high-res images stored in IndexedDB. Supports restoring from .zip or legacy .json files.")}</p>
+ <div class="row">
+  <button class="btn pri" data-act="bak-zip-exp">📦 ${L("导出完整备份 (.zip)","Export Full Backup (.zip)")}</button>
+  <button class="btn" data-act="bak-img-zip">🖼️ ${L("仅导出全部图片 (.zip)","Export All Images (.zip)")}</button>
+  <button class="btn" data-act="bak-exp">📄 ${L("仅导出纯数据 (.json)","Export Data Only (.json)")}</button>
+  <label class="btn">${L("导入恢复 (.zip / .json)","Restore (.zip / .json)")}<input type="file" id="bak_in" accept=".zip,.json,application/json,application/zip" hidden></label>
+ </div></div>
+ <div class="card"><h3>${L("重置","Reset")}</h3><p class="muted">${L("清空本地全部业务数据与 IndexedDB 图片库，恢复示例商品。","Clear all local data & IndexedDB images and restore sample products.")}</p><button class="btn red" data-act="bak-reset">${L("清空并恢复示例","Reset to sample")}</button></div>`);
+
+ACT["bak-img-zip"]=()=>exportAllImagesZip();
+
+ACT["bak-exp"]=async()=>{const d={v:1,exported:new Date().toISOString(),items,sups,cats,staff,roles,pos,hist,locs,moves,batches,CFG};
+ try{await saveFile("shop-backup-"+today()+".json",JSON.stringify(d,null,2),"application/json");toast(L("已导出纯数据备份","Exported JSON backup"))}catch(e){toast(e&&e.code==="declined"?L("已取消","Cancelled"):L("导出失败","Export failed"))}};
+
+ACT["bak-zip-exp"]=async()=>{
+ if(typeof JSZip==="undefined"){toast(L("JSZip 组件未加载，请检查网络","JSZip not loaded"));return}
+ toast(L("正在打包完整备份…","Creating full backup…"));
+ try{
+  const zip=new JSZip();
+  const meta={v:2,exported:new Date().toISOString(),items,sups,cats,staff,roles,pos,hist,locs,moves,batches,CFG};
+  zip.file("backup.json",JSON.stringify(meta,null,2));
+  const allImgs=await ImgDB.all();
+  const keys=Object.keys(allImgs);
+  if(keys.length){
+   const folder=zip.folder("images");
+   keys.forEach(k=>{
+    const b=allImgs[k];
+    if(b){
+     const ext=(b.type&&b.type.includes("png"))?"png":"jpg";
+     folder.file(`${k}.${ext}`,b);
+    }
+   });
+  }
+  const content=await zip.generateAsync({type:"blob"});
+  await saveFile(`shop-full-backup-${today()}.zip`,content,"application/zip");
+  toast(L(`完整备份导出成功（含 ${keys.length} 张图片）`,`Full backup exported (${keys.length} images)`));
+ }catch(e){
+  toast(L("完整备份导出失败","Full backup export failed"));
+ }
 };
 
-PG["set-lang"]=()=>main(head(L("语言与显示","Language & display"))+`<div class="card"><div class="fg">${F("lang","界面语言","Language",LANG,{type:"select",opts:[["zh","中文"],["en","English"]]})}${F("psize","每页显示条数","Page size",CFG.psize,{type:"select",opts:[5,10,15,20].map(n=>[n,n])})}${F("expWarn","临期提前提醒天数","Expiry warning days",CFG.expWarn,{type:"number"})}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="set-lang-save">${L("保存","Save")}</button></div></div>`);
-ACT["set-lang-save"]=()=>{LANG=V("lang");try{localStorage.setItem("lang1",LANG)}catch(e){}CFG.psize=+V("psize")||10;CFG.expWarn=Math.max(1,Math.round(+V("expWarn")||30));SAVE.cfg();buildModal();toast(L("已保存","Saved"));render()};
-
-const ALL_KEYS=["labels2","suppliers1","stockhist1","cats1","staff1","roles1","locs1","moves1","batches1","pos1","settings1","lang1","podraft1","lbl_tpl","admin_cred1","is_logged1"];
-PG["set-data"]=()=>main(head(L("数据导入导出","Data backup & restore"))+`<div class="card"><h3>${L("导出备份","Export backup")}</h3><p class="muted">${L("把商品、分类、供应商、采购单、库存、批次、库位、盘点、员工和设置导出为一个 JSON 文件;同时可导出所有商品图片 ZIP 包。","Exports all data to a JSON file, and allows exporting all product images as a ZIP.")}</p><div class="row"><button class="btn pri" data-act="bk-exp">⬇ ${L("导出 JSON 备份","Export JSON")}</button><button class="btn" data-act="bk-zip">📦 ${L("导出全部图片 ZIP","Export Images ZIP")}</button></div></div>
- <div class="card"><h3>${L("导入备份","Import backup")}</h3><p class="muted">${L("会覆盖当前浏览器里的同类数据(建议先导出备份)。","Overwrites existing data in this browser.")}</p><input type="file" id="bk_file" accept=".json" class="in"><div id="bk_msg" class="muted" style="margin-top:8px"></div></div>
- <div class="card"><h3>${L("清空数据","Clear data")}</h3><p class="muted">${L("删除本机保存的全部数据(含图片与账号会话),不可恢复。","Deletes all data stored in this browser (including images and session).")}</p><button class="btn red" data-act="bk-clr">${L("清空全部数据","Clear all data")}</button></div>`);
-ACT["bk-exp"]=async()=>{const d={_v:3,exportedAt:new Date().toISOString(),images:{}};
- ALL_KEYS.forEach(k=>{try{const v=localStorage.getItem(k);if(v!==null)d[k]=JSON.parse(v)}catch(e){}});
- if(ImgDB.ok){
-  const all=await ImgDB.all();
-  for(const [imgId,blob] of Object.entries(all)){
-   if(!(blob instanceof Blob))continue;
-   const b64=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)});
-   d.images[imgId]=b64;
-  }
- }
- try{await saveFile("shop-backup-"+today()+".json",JSON.stringify(d,null,2),"application/json");toast(L("已导出","Exported"))}catch(e){toast(e&&(e.code==="declined"||e.name==="AbortError")?L("已取消","Cancelled"):L("导出失败","Export failed"))}};
-ACT["bk-zip"]=exportAllImagesZip;
-document.addEventListener("change",async e=>{if(e.target.id!=="bk_file")return;const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!d||typeof d!=="object")throw 0;
- ALL_KEYS.forEach(k=>{if(k in d)sv(k,d[k])});
- if(d.images&&typeof d.images==="object"&&ImgDB.ok){
-  await ImgDB.clear();
-  for(const [imgId,dataUrl] of Object.entries(d.images)){
-   if(typeof dataUrl==="string"&&dataUrl.startsWith("data:")){
-    try{const res=await fetch(dataUrl);const blob=await res.blob();await ImgDB.put(imgId,blob)}catch(_){}
+document.addEventListener("change",async e=>{if(e.target.id!=="bak_in")return;const f=e.target.files[0];if(!f)return;
+ try{
+  let d=null;
+  let restoredImgCount=0;
+  if(/\.zip$/i.test(f.name)){
+   if(typeof JSZip==="undefined")throw new Error("JSZip missing");
+   toast(L("正在解析备份包…","Extracting backup…"));
+   const zip=await JSZip.loadAsync(f);
+   const jsonFile=zip.file("backup.json");
+   if(!jsonFile)throw new Error("Invalid backup zip: missing backup.json");
+   d=JSON.parse(await jsonFile.async("string"));
+   if(!d||!Array.isArray(d.items))throw new Error("Invalid data structure");
+   if(ImgDB.ok){
+    await ImgDB.clear();
+    const imgFiles=[];
+    zip.folder("images").forEach((relPath,file)=>{
+     if(!file.dir)imgFiles.push({relPath,file});
+    });
+    for(const item of imgFiles){
+     const blob=await item.file.async("blob");
+     const imgId=item.relPath.replace(/\.[^.]+$/,"");
+     const typedBlob=new Blob([blob],{type:item.relPath.endsWith(".png")?"image/png":"image/jpeg"});
+     if(await ImgDB.put(imgId,typedBlob))restoredImgCount++;
+    }
    }
+  }else{
+   d=JSON.parse(await f.text());
+   if(!d||!Array.isArray(d.items))throw new Error("bad");
+   if(ImgDB.ok)await ImgDB.clear();
   }
- }
- $("bk_msg").textContent=L("导入成功,正在刷新…","Restored, reloading…");setTimeout(()=>location.reload(),600)}catch(err){$("bk_msg").textContent=L("文件格式不正确","Invalid backup file")}e.target.value=""});
-ACT["bk-clr"]=(_,el)=>cf(el,async()=>{ALL_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});try{localStorage.removeItem("pos1")}catch(e){}if(ImgDB.ok)await ImgDB.clear();BlobPool.clear();toast(L("已清空","Cleared"));setTimeout(()=>location.reload(),500)});
-PG["set-about"]=()=>main(head(L("关于系统","About"))+`<div class="card"><p><b>${L("杂货店管理系统","Shop Manager")}</b></p><p class="muted">${L("数据保存在当前浏览器的 localStorage 与 IndexedDB 中,无需联网部署。换设备或清浏览器缓存前,请先到“设置 › 数据导入导出”备份。","Data is stored locally in your browser (localStorage & IndexedDB). Back up before switching devices or clearing site data.")}</p></div>`);
+  items=d.items;sups=d.sups||[];cats=d.cats||[];staff=d.staff||[];roles=d.roles||defRoles();pos=d.pos||[];hist=d.hist||[];locs=d.locs||[];moves=d.moves||[];batches=d.batches||[];
+  if(d.CFG)CFG=Object.assign(CFG,d.CFG);
+  await safeInitStorage();
+  migrateOldGoods();
+  norm();Object.values(SAVE).forEach(fn=>fn());
+  toast(L(`恢复成功（含 ${restoredImgCount} 张图片）`,`Restored (${restoredImgCount} images)`));
+  render();
+ }catch(err){
+  console.error(err);
+  toast(L("备份文件格式不正确或损坏","Invalid or corrupted backup file"));
+ }e.target.value=""});
 
-/* ---------- PDF Export: Purchase Order & Product List ---------- */
-const PDF_BRAND = {
-  cnName: "杂货店",
-  enName: "Chap He Diam",
-  tagline: "Your Friendly Neighbourhood Provision Shop",
-  address: "Blk 123 Tampines Street 11, #01-45, Singapore 521123",
-  phone: "+65 6789 4321",
-  email: "orders@chaphediam.sg",
-  uen: "UEN 202419876K"
-};
-const PDF_STYLES = `
-@page{size:A4 portrait;margin:14mm 14mm 16mm 14mm}
-*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-html,body{margin:0;padding:0;background:#fff;color:#111827;font:12px/1.45 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
-.pdf-wrap{max-width:100%;margin:0 auto}
-.pdf-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:12px;border-bottom:2px solid #1d2fa0;margin-bottom:14px}
-.pdf-brand-cn{font-size:20px;font-weight:800;color:#1d2fa0;letter-spacing:2px;line-height:1.2}
-.pdf-brand-en{font-size:13px;font-weight:700;color:#1d2fa0;margin-top:2px}
-.pdf-brand-tag{font-size:10.5px;color:#6b7280;margin-top:2px}
-.pdf-brand-meta{font-size:10.5px;color:#4b5563;margin-top:5px;line-height:1.45}
-.pdf-doc-box{text-align:right;min-width:180px}
-.pdf-doc-title{font-size:18px;font-weight:800;color:#111827;letter-spacing:1px}
-.pdf-doc-sub{font-size:11px;color:#4b5563;margin-top:3px}
-.pdf-badge{display:inline-block;margin-top:5px;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;border:1px solid #cbd5e1;background:#f8fafc;color:#334155}
-.pdf-badge.ok{background:#dcfce7;border-color:#86efac;color:#166534}
-.pdf-badge.warn{background:#fef3c7;border-color:#fcd34d;color:#92400e}
-.pdf-badge.err{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
-.pdf-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-.pdf-card{border:1px solid #d1d5db;border-radius:6px;padding:9px 11px;background:#fafafa}
-.pdf-card-t{font-size:10px;font-weight:700;text-transform:uppercase;color:#6b7280;letter-spacing:.5px;margin-bottom:4px}
-.pdf-kv{font-size:11.5px;line-height:1.5;color:#1f2937}
-.pdf-kv b{color:#111827}
-.pdf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.pdf-kpi{border:1px solid #d1d5db;border-radius:6px;padding:7px 9px;background:#f9fafb}
-.pdf-kpi small{display:block;font-size:10px;color:#6b7280}
-.pdf-kpi b{display:block;font-size:14px;color:#111827;margin-top:1px}
-table.pdf-tbl{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:11px}
-table.pdf-tbl thead{display:table-header-group}
-table.pdf-tbl tr{break-inside:avoid;page-break-inside:avoid}
-table.pdf-tbl th{background:#1d2fa0;color:#fff;font-weight:600;padding:6px 7px;border:1px solid #1d2fa0;text-align:left;white-space:nowrap}
-table.pdf-tbl td{padding:6px 7px;border:1px solid #d1d5db;vertical-align:middle;color:#111827}
-table.pdf-tbl tbody tr:nth-child(even){background:#f9fafb}
-table.pdf-tbl th.r,table.pdf-tbl td.r{text-align:right}
-table.pdf-tbl th.c,table.pdf-tbl td.c{text-align:center}
-.pdf-thumb{width:34px;height:34px;object-fit:contain;background:#fff;border:1px solid #e5e7eb;border-radius:4px;display:block;margin:0 auto}
-.pdf-noimg{width:34px;height:34px;line-height:34px;text-align:center;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;margin:0 auto;font-size:14px}
-.pdf-bc{width:104px;height:26px;background:#fff;display:block}
-.pdf-bc svg{width:100%;height:100%;display:block}
-.pdf-bct{font:10px/1.2 monospace;color:#374151;margin-top:2px;letter-spacing:.3px}
-.pdf-sum-box{display:flex;justify-content:flex-end;margin-top:6px;margin-bottom:14px}
-.pdf-sum-tbl{width:270px;border-collapse:collapse;font-size:11.5px}
-.pdf-sum-tbl td{padding:5px 8px;border:1px solid #d1d5db}
-.pdf-sum-tbl td:first-child{background:#f3f4f6;color:#374151;font-weight:600}
-.pdf-sum-tbl td:last-child{text-align:right;font-weight:700;color:#111827}
-.pdf-sum-tbl tr.grand td{background:#eef2ff;color:#1d2fa0;font-size:12.5px}
-.pdf-note{border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;background:#fffbeb;font-size:11px;color:#334155;margin-bottom:14px}
-.pdf-sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;padding-top:10px}
-.pdf-sign-line{border-top:1px solid #6b7280;padding-top:4px;font-size:11px;color:#4b5563}
-.pdf-ftr{margin-top:14px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:10px;color:#6b7280}
-.pdf-actbar{position:sticky;top:0;background:#1e293b;color:#fff;padding:8px 14px;display:flex;align-items:center;gap:10px;z-index:50;font-size:12px}
-.pdf-actbar button{padding:5px 12px;border-radius:5px;border:0;cursor:pointer;font-weight:600;font-size:12px}
-.pdf-btn-p{background:#3b82f6;color:#fff}
-.pdf-btn-c{background:#475569;color:#fff}
-@media print{.pdf-actbar{display:none!important}body{padding:0}}
-`;
-function pdfShopInfo(){
- const cn=(CFG.cn||PDF_BRAND.cnName).trim();
- const en=(CFG.en||CFG.shop||PDF_BRAND.enName).trim();
- const tag=(CFG.tag||PDF_BRAND.tagline).trim();
- const addr=(CFG.addr||PDF_BRAND.address).trim();
- const phone=(CFG.phone||PDF_BRAND.phone).trim();
- return{cn,en,tag,addr,phone,email:PDF_BRAND.email,uen:PDF_BRAND.uen};
-}
-function pdfHeaderHtml(titleText,subText,badgeHtml){
- const b=pdfShopInfo();
- return`<div class="pdf-hdr">
-  <div>
-   <div class="pdf-brand-cn">${esc(b.cn)}</div>
-   <div class="pdf-brand-en">${esc(b.en)}</div>
-   <div class="pdf-brand-tag">${esc(b.tag)}</div>
-   <div class="pdf-brand-meta">${esc(b.addr)}<br>${L("电话","Tel")}: ${esc(b.phone)} · ${esc(b.email)} · ${esc(b.uen)}</div>
-  </div>
-  <div class="pdf-doc-box">
-   <div class="pdf-doc-title">${esc(titleText)}</div>
-   ${subText?`<div class="pdf-doc-sub">${esc(subText)}</div>`:""}
-   ${badgeHtml||""}
-  </div>
- </div>`;
-}
-function pdfFooterHtml(leftNote){
- const nowStr=new Date().toLocaleString();
- return`<div class="pdf-ftr"><span>${esc(leftNote||"")}</span><span>${L("生成时间","Generated")}: ${esc(nowStr)}</span></div>`;
-}
-async function openPdfWindow(docTitle,bodyHtml,footerLeft){
- const w=window.open("","_blank");
- if(!w){toast(L("请允许本页弹窗后再试","Allow pop-ups and retry"));return}
- const blobUrls=[];
- w.document.open();
- w.document.write(`<!doctype html><html lang="${LANG}"><head><meta charset="utf-8"><title>${esc(docTitle)}</title><style>${PDF_STYLES}</style></head><body>
- <div class="pdf-actbar">
-  <span><b>${esc(docTitle)}</b> — ${L("请在打印/保存对话框中选择“另存为 PDF”","Choose “Save as PDF” in the print/save dialog")}</span>
-  <span style="flex:1"></span>
-  <button class="pdf-btn-p" id="pdf_do_print">🖨 ${L("打印 / 保存 PDF","Print / Save PDF")}</button>
-  <button class="pdf-btn-c" id="pdf_do_close">${L("关闭","Close")}</button>
- </div>
- <div class="pdf-wrap" id="pdf_root">${bodyHtml}${pdfFooterHtml(footerLeft)}</div>
- </body></html>`);
- w.document.close();
- const imgs=[...w.document.querySelectorAll("img[data-pdf-imgid]")];
- for(const im of imgs){
-  const id=im.getAttribute("data-pdf-imgid");
-  if(!id)continue;
-  const blob=await ImgDB.get(id);
-  if(blob){
-   const u=URL.createObjectURL(blob);
-   blobUrls.push(u);
-   im.src=u;
-  }
- }
- await Promise.all(imgs.map(im=>im.complete?Promise.resolve():new Promise(r=>{im.onload=r;im.onerror=r;setTimeout(r,1200)})));
- const doPrint=()=>{w.print()};
- const pBtn=w.document.getElementById("pdf_do_print");
- const cBtn=w.document.getElementById("pdf_do_close");
- if(pBtn)pBtn.onclick=doPrint;
- if(cBtn)cBtn.onclick=()=>{blobUrls.forEach(u=>URL.revokeObjectURL(u));w.close()};
- w.addEventListener("beforeunload",()=>blobUrls.forEach(u=>URL.revokeObjectURL(u)));
- setTimeout(()=>{try{doPrint()}catch(_){}},350);
-}
-function poStatusBadge(st){
- const map={draft:["草稿","Draft",""],ordered:["已下单","Ordered","warn"],partial:["部分入库","Partial","warn"],received:["已入库","Received","ok"],cancelled:["已取消","Cancelled","err"]};
- const m=map[st]||[st,st,""];
- return`<div class="pdf-badge ${m[2]}">${L(m[0],m[1])}</div>`;
-}
-async function generatePurchaseOrderPdf(p){
- if(!p){toast(L("采购单不存在","Purchase order not found"));return}
- const supObj=p.sup?byId(sups,p.sup):null;
- const supName=supObj?supObj.name:L("未指定供应商","Unassigned Supplier");
- const totalLines=p.lines.length;
- const totalBoxes=p.lines.filter(l=>l.unit==="box").reduce((a,l)=>a+(+l.qty||0),0);
- const totalPcs=p.lines.reduce((a,l)=>a+lnPcs(l),0);
- const subtotal=poTotal(p);
- const rowsHtml=p.lines.map((l,idx)=>{
-  const it=byId(items,l.pid);
-  const bc=poLineBarcode(l,p);
-  const pcs=lnPcs(l);
-  const amt=pcs*(+l.cost||0);
-  const nameTxt=it?pname(it):L("未知商品","Unknown Product");
-  const skuTxt=it&&it.sku?`SKU: ${it.sku}`:"";
-  const sizeTxt=it&&it.size?it.size:"";
-  const subParts=[skuTxt,sizeTxt].filter(Boolean).join(" · ");
-  const bcCell=bc?(barInfo(bc)?`<div class="pdf-bc">${eanSvg(bc)}</div><div class="pdf-bct">${esc(bc)}</div>`:`<div class="pdf-bct">${esc(bc)}</div>`):`<span style="color:#9ca3af">—</span>`;
-  return`<tr>
-   <td class="c">${idx+1}</td>
-   <td><b>${esc(nameTxt)}</b>${subParts?`<div style="font-size:10px;color:#6b7280">${esc(subParts)}</div>`:""}</td>
-   <td>${bcCell}</td>
-   <td class="c">${esc(unitTxt(l))}</td>
-   <td class="r">${+l.qty||0}</td>
-   <td class="r">${pcs}</td>
-   <td class="r">${money(l.cost||0)}</td>
-   <td class="r"><b>${money(amt)}</b></td>
-  </tr>`;
- }).join("");
- const body=`
-  ${pdfHeaderHtml(L("采购单","PURCHASE ORDER"),`${L("单号","PO No.")}: ${p.no||L("草稿","DRAFT")} · ${L("日期","Date")}: ${p.date||today()}`,poStatusBadge(p.status))}
-  <div class="pdf-info-grid">
-   <div class="pdf-card">
-    <div class="pdf-card-t">${L("供应商信息","SUPPLIER DETAILS")}</div>
-    <div class="pdf-kv">
-     <b>${esc(supName)}</b><br>
-     ${supObj&&supObj.contact?`${L("联系人","Contact")}: ${esc(supObj.contact)}<br>`:""}
-     ${supObj&&supObj.phone?`${L("电话","Phone")}: ${esc(supObj.phone)}<br>`:""}
-     ${supObj&&supObj.email?`${L("邮箱","Email")}: ${esc(supObj.email)}<br>`:""}
-     ${supObj&&supObj.addr?`${L("地址","Address")}: ${esc(supObj.addr)}<br>`:""}
-     ${supObj&&supObj.terms?`${L("付款条件","Terms")}: ${esc(supObj.terms)}`:""}
-    </div>
-   </div>
-   <div class="pdf-card">
-    <div class="pdf-card-t">${L("单据与收货信息","ORDER & DELIVERY INFO")}</div>
-    <div class="pdf-kv">
-     ${L("采购单号","PO Number")}: <b>${esc(p.no||L("草稿","DRAFT"))}</b><br>
-     ${L("下单日期","Order Date")}: <b>${esc(p.date||today())}</b><br>
-     ${p.rcv?`${L("完成入库","Received Date")}: <b>${esc(p.rcv)}</b><br>`:""}
-     ${L("收货门店","Deliver To")}: <b>${esc(pdfShopInfo().en)}</b>
-    </div>
-   </div>
-  </div>
-  <div class="pdf-kpis">
-   <div class="pdf-kpi"><small>${L("品项数","Line Items")}</small><b>${totalLines}</b></div>
-   <div class="pdf-kpi"><small>${L("总箱数","Total Boxes")}</small><b>${totalBoxes}</b></div>
-   <div class="pdf-kpi"><small>${L("总件数(个)","Total Pieces")}</small><b>${totalPcs}</b></div>
-   <div class="pdf-kpi"><small>${L("订单合计","Order Total")}</small><b>${money(subtotal)}</b></div>
-  </div>
-  <table class="pdf-tbl">
-   <thead>
-    <tr>
-     <th class="c" style="width:32px">#</th>
-     <th>${L("商品名称","Product")}</th>
-     <th style="width:116px">${L("条码","Barcode")}</th>
-     <th class="c" style="width:46px">${L("单位","Unit")}</th>
-     <th class="r" style="width:52px">${L("数量","Qty")}</th>
-     <th class="r" style="width:58px">${L("总件数","Pieces")}</th>
-     <th class="r" style="width:72px">${L("单价/个","Cost/pc")}</th>
-     <th class="r" style="width:82px">${L("小计","Amount")}</th>
-    </tr>
-   </thead>
-   <tbody>${rowsHtml||`<tr><td colspan="8" class="c" style="padding:16px;color:#6b7280">${L("暂无采购明细","No order lines")}</td></tr>`}</tbody>
-  </table>
-  <div class="pdf-sum-box">
-   <table class="pdf-sum-tbl">
-    <tr><td>${L("品项合计","Total Lines")}</td><td>${totalLines}</td></tr>
-    <tr><td>${L("总件数(个)","Total Pieces")}</td><td>${totalPcs}</td></tr>
-    <tr class="grand"><td>${L("采购总金额","Grand Total")}</td><td>${money(subtotal)}</td></tr>
-   </table>
-  </div>
-  ${p.note?`<div class="pdf-note"><b>${L("备注","Notes")}:</b> ${esc(p.note)}</div>`:""}
-  <div class="pdf-sign">
-   <div class="pdf-sign-line">${L("制单 / 采购经办人签字","Prepared / Ordered By")}</div>
-   <div class="pdf-sign-line">${L("供应商确认 / 收货签收","Supplier / Receiver Signature")}</div>
-  </div>
- `;
- await openPdfWindow(`${L("采购单","Purchase Order")} - ${p.no||"DRAFT"}`,body,`${L("采购单","Purchase Order")} ${p.no||"DRAFT"}`);
-}
-async function generateProductListPdf(list){
- const rows=Array.isArray(list)?list:items;
- const totShelf=rows.reduce((a,i)=>a+(+i.qs||0),0);
- const totWh=rows.reduce((a,i)=>a+(+i.qw||0),0);
- const totCost=rows.reduce((a,i)=>a+(+i.qty||0)*itemCost(i),0);
- const rowsHtml=rows.map((i,idx)=>{
-  const im=imgOf(i);
-  const bc=itemPrimaryCode(i);
-  const c0=itemCost(i);
-  const supTxt=itemSupNames(i).join("、")||"—";
-  const catTxt=nm(cats,i.cat)||L("未分类","Uncategorized");
-  const st=stat(i);
-  const stLabel=st==="ok"?L("正常","OK"):st==="low"?L("偏低","Low"):L("缺货","Out");
-  const imgCell=im?`<img class="pdf-thumb" data-pdf-imgid="${esc(im)}" src="" alt="">`:`<div class="pdf-noimg">📦</div>`;
-  const bcCell=bc?(barInfo(bc)?`<div class="pdf-bc">${eanSvg(bc)}</div><div class="pdf-bct">${esc(bc)}</div>`:`<div class="pdf-bct">${esc(bc)}</div>`):`<span style="color:#9ca3af">—</span>`;
-  return`<tr>
-   <td class="c">${idx+1}</td>
-   <td class="c">${imgCell}</td>
-   <td><b>${esc(pname(i))}</b><div style="font-size:10px;color:#6b7280">${i.sku?`SKU: ${esc(i.sku)} · `:""}${esc(catTxt)}</div></td>
-   <td>${esc(supTxt)}</td>
-   <td>${bcCell}</td>
-   <td class="r">${money(i.mp)}</td>
-   <td class="r">${money(i.np)}</td>
-   <td class="r">${money(c0)}</td>
-   <td class="r">${i.qs} / ${i.qw}</td>
-   <td class="c">${esc(stLabel)}</td>
-  </tr>`;
- }).join("");
- const body=`
-  ${pdfHeaderHtml(L("商品清单","PRODUCT CATALOG & STOCK LIST"),`${L("共","Total")} ${rows.length} ${L("款商品","products")} · ${L("日期","Date")}: ${today()}`,`<div class="pdf-badge">${L("库存目录","Catalog")}</div>`)}
-  <div class="pdf-kpis">
-   <div class="pdf-kpi"><small>${L("商品款数","Products")}</small><b>${rows.length}</b></div>
-   <div class="pdf-kpi"><small>${L("货架总库存","Shelf Qty")}</small><b>${totShelf}</b></div>
-   <div class="pdf-kpi"><small>${L("仓库总库存","Warehouse Qty")}</small><b>${totWh}</b></div>
-   <div class="pdf-kpi"><small>${L("库存总成本","Total Cost")}</small><b>${money(totCost)}</b></div>
-  </div>
-  <table class="pdf-tbl">
-   <thead>
-    <tr>
-     <th class="c" style="width:30px">#</th>
-     <th class="c" style="width:44px">${L("图片","Img")}</th>
-     <th>${L("商品","Product")}</th>
-     <th>${L("供应商","Suppliers")}</th>
-     <th style="width:112px">${L("主条码","Barcode")}</th>
-     <th class="r" style="width:62px">${L("会员价","Member")}</th>
-     <th class="r" style="width:62px">${L("非会员","Retail")}</th>
-     <th class="r" style="width:62px">${L("成本","Cost")}</th>
-     <th class="r" style="width:68px">${L("架/仓","S/W")}</th>
-     <th class="c" style="width:52px">${L("状态","Status")}</th>
-    </tr>
-   </thead>
-   <tbody>${rowsHtml||`<tr><td colspan="10" class="c" style="padding:16px;color:#6b7280">${L("暂无商品数据","No products")}</td></tr>`}</tbody>
-  </table>
- `;
- await openPdfWindow(L("商品清单 PDF","Product Catalog PDF"),body,L("商品清单导出","Product Catalog Export"));
-}
-ACT["po-pdf"]=id=>generatePurchaseOrderPdf(byId(pos,id));
-ACT["po-pdf-draft"]=()=>{
- if(!poD){toast(L("没有可导出的草稿","No draft to export"));return}
- const draftSnap=Object.assign({},poD,{sup:V("sup")||poD.sup,date:V("date")||poD.date||today(),note:V("note")});
- generatePurchaseOrderPdf(draftSnap);
-};
-ACT["prod-pdf"]=()=>{
- const rows=(LST["prod-list"]&&LST["prod-list"].rows)?LST["prod-list"].rows():items;
- generateProductListPdf(rows);
-};
+ACT["bak-reset"]=(_,el)=>cf(el,async()=>{
+ ["labels2","suppliers1","stockhist1","cats1","staff1","roles1","locs1","moves1","batches1","pos1","settings1"].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+ await ImgDB.clear();
+ BlobPool.clear();
+ location.reload();
+});
+PG["set-about"]=()=>main(head(L("关于系统","About"))+`<div class="card"><p><b>${L("杂货店管理系统","Provision Shop Manager")}</b></p><p class="muted">${L("所有数据保存在本机浏览器中(localStorage + IndexedDB),关闭页面或断网都不会丢失。请定期在“设置 › 数据导入导出”下载完整 ZIP 备份。","All data is stored locally in this browser (localStorage + IndexedDB) and works offline. Download a full ZIP backup regularly in Settings › Data backup.")}</p></div>`);
 
 /* ---------- boot ---------- */
-buildModal();
-(async()=>{
- await safeInitStorage();
- migrateOldGoods();
- render();
+(async function boot() {
+  await safeInitStorage();
+  migrateOldGoods();
+  norm();
+  buildModal();
+  render();
 })();
-if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
