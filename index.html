@@ -658,7 +658,7 @@ const MENU=[
 {id:"rep",i:"📈",z:"报表中心",e:"Reports",c:[{id:"rep-stock",z:"库存报表",e:"Stock report"},{id:"rep-buy",z:"采购报表",e:"Purchase report"},{id:"rep-var",z:"盘点差异报表",e:"Variance report"},{id:"rep-margin",z:"商品毛利报表",e:"Margin report"},{id:"rep-exp",z:"效期报表",e:"Expiry report"}]},
 {id:"set",i:"⚙️",z:"设置",e:"Settings",c:[{id:"set-shop",z:"店铺信息",e:"Shop info"},{id:"set-lang",z:"语言与显示",e:"Language"},{id:"set-data",z:"数据导入导出",e:"Data backup"},{id:"set-about",z:"关于系统",e:"About"}]}];
 const DETAIL=new Set(["prod-detail","prod-edit","sup-detail","sup-edit","po-detail","po-edit","staff-detail","staff-edit","stk-detail"]);
-const PARENT={"prod-detail":"prod-list","sup-detail":"sup-list","po-detail":"po-list","staff-detail":"staff-list","stk-detail":"stk-hist"};
+const PARENT={"po-import":"po-list","prod-detail":"prod-list","sup-detail":"sup-list","po-detail":"po-list","staff-detail":"staff-list","stk-detail":"stk-hist"};
 const EDITP={"prod-edit":"prod-list","sup-edit":"sup-list","po-edit":"po-list","staff-edit":"staff-list"};
 const PG={},ACT={},S={},LST={};
 const actId=(p,id)=>PARENT[p]||(id&&EDITP[p])||p;
@@ -671,7 +671,7 @@ function renderSide(p,id){const act=actId(p,id);
   if(m.c.length===1)return`<a class="m1 ${open?"on":""}" data-go="${m.c[0].id}">${m.i} ${L(m.z,m.e)}</a>`;
   return`<div class="mg ${open?"open":""}"><a class="m1 ${open?"on":""}" data-mg="1">${m.i} ${L(m.z,m.e)}<span class="car">›</span></a><div class="m2w">${m.c.map(c=>{const tb=c.id===act?tabsOf(c.id):null;
    return`<a class="m2 ${c.id===act?"on":""}" data-go="${c.id}">${L(c.z,c.e)}${c.id==="stk-expiry"&&expAlerts().length?`<span class="bdg">${expAlerts().length}</span>`:""}</a>`+(tb?tb.map(t=>`<a class="m3 ${((S[c.id]||{}).tab||tb[0].id)===t.id?"on":""}" data-tab3="${c.id}|${t.id}">${L(t.z,t.e)}</a>`).join(""):"")}).join("")}</div></div>`}).join("");
- const [m1,m2]=find2(act);const sub=PARENT[p]||EDITP[p]?` › <b>${L(...({"prod-detail":["商品详情","Detail"],"sup-detail":["供应商详情","Detail"],"po-detail":["采购单详情","Detail"],"staff-detail":["员工详情","Detail"],"stk-detail":["盘点详情","Detail"],"prod-edit":["编辑商品","Edit"],"sup-edit":["编辑供应商","Edit"],"po-edit":["编辑采购单","Edit"],"staff-edit":["编辑员工","Edit"]}[p]||["",""]))}</b>`:"";
+ const [m1,m2]=find2(act);const sub=PARENT[p]||EDITP[p]?` › <b>${L(...({"prod-detail":["商品详情","Detail"],"sup-detail":["供应商详情","Detail"],"po-detail":["采购单详情","Detail"],"staff-detail":["员工详情","Detail"],"stk-detail":["盘点详情","Detail"],"prod-edit":["编辑商品","Edit"],"sup-edit":["编辑供应商","Edit"],"po-edit":["编辑采购单","Edit"],"staff-edit":["编辑员工","Edit"],"po-import":["导入PO单","Import PO"]}[p]||["",""]))}</b>`:"";
  $("crumb").innerHTML=`${L(m1.z,m1.e)} › ${m1.c.length>1?L(m2.z,m2.e):""}${id&&EDITP[p]||PARENT[p]?sub:""}`.replace(/ › $/,"");
  const bn=[["home","🏠",L("首页","Home")],["prod-list","📦",L("商品","Products")],["stk-overview","📋",L("库存","Stock")],["po-list","🧾",L("采购","Orders")]];
  $("bnav").innerHTML=bn.filter(b=>canM(find2(b[0])[0].id)).map(b=>`<a data-go="${b[0]}" class="${find2(act)[0]===find2(b[0])[0]?"on":""}"><i>${b[1]}</i>${b[2]}</a>`).join("")+`<a data-act="drawer"><i>☰</i>${L("菜单","Menu")}</a>`}
@@ -1296,7 +1296,7 @@ PG["po-list"]=()=>mount("po-list",{data:()=>pos,hay:p=>[p.no,nm(sups,p.sup),p.no
  cols:[{h:["单号","No."],f:(p,t)=>`<a class="lnk" data-go="po-detail-${p.id}">${hl(p.no,t)}</a>`},{h:["供应商","Supplier"],f:(p,t)=>hl(nm(sups,p.sup),t)},{h:["日期","Date"],f:p=>esc(p.date)},{h:["商品条码","Barcodes"],f:p=>poLineCodesSummary(p)},{h:["品项","Lines"],cls:"num",f:p=>p.lines.length},{h:["总件数","Pieces"],cls:"num",f:p=>p.lines.reduce((a,l)=>a+lnPcs(l),0)},{h:["金额","Amount"],cls:"num",f:p=>money(poTotal(p))},{h:["状态","Status"],f:p=>tagP(p.status)},
  {h:["操作","Actions"],f:p=>`<button class="btn sm" data-go="po-detail-${p.id}">${L("详情","Detail")}</button>${p.status==="draft"?` <button class="btn sm" data-go="po-edit-${p.id}">${L("编辑","Edit")}</button>`:""} <button class="btn sm" data-act="po-copy" data-id="${p.id}">${L("复制","Copy")}</button> <button class="btn sm" data-act="po-xlsx" data-id="${p.id}">Excel</button>${p.status==="draft"||p.status==="cancelled"?` <button class="btn sm red" data-act="po-del" data-id="${p.id}">${L("删除","Del")}</button>`:""}`}],
  pre:(()=>{const d=ld("podraft1",null);return d&&d.lines&&d.lines.length?`<div class="card warn" data-go="po-edit">📝 ${L("有一张未完成的采购单草稿("+d.lines.length+" 项),点击继续","An unfinished draft ("+d.lines.length+" lines), tap to continue")}</div>`:""})(),
- tool:`<button class="btn pri" data-go="po-edit">＋ ${L("新建采购单","New order")}</button>`},head(L("采购单","Purchase orders")));
+ tool:`<button class="btn" data-act="po-up">📄 ${L("上传PO单(PDF)","Upload PO (PDF)")}</button> <button class="btn pri" data-go="po-edit">＋ ${L("新建采购单","New order")}</button>`},head(L("采购单","Purchase orders")));
 ACT["po-del"]=(id,el)=>cf(el,()=>{pos=pos.filter(p=>String(p.id)!==String(id));SAVE.pos();render()});
 ACT["po-copy"]=id=>{const p=byId(pos,id);if(!p)return;const d={id:uid(),no:"",sup:p.sup,date:today(),note:p.note||"",status:"draft",isNew:true,lines:p.lines.map(l=>({pid:l.pid,barcode:poLineBarcode(l,p),qty:l.qty,unit:l.unit||"pc",perBox:l.perBox||1,cost:l.cost}))};sv("podraft1",d);poD=null;toast(L("已复制为新草稿","Copied as a new draft"));go("po-edit")};
 ACT["po-xlsx"]=id=>{const p=byId(pos,id);if(!p)return;exportPoExcel(p)};
@@ -1637,6 +1637,80 @@ ACT["bak-reset"]=(_,el)=>cf(el,async()=>{
  location.reload();
 });
 PG["set-about"]=()=>main(head(L("关于系统","About"))+`<div class="card"><p><b>${L("杂货店管理系统","Provision Shop Manager")}</b></p><p class="muted">${L("所有数据保存在本机浏览器中(localStorage + IndexedDB),关闭页面或断网都不会丢失。请定期在“设置 › 数据导入导出”下载完整 ZIP 备份。","All data is stored locally in this browser (localStorage + IndexedDB) and works offline. Download a full ZIP backup regularly in Settings › Data backup.")}</p></div>`);
+
+/* ---------- import purchase order from PDF ---------- */
+/*PO_PARSE_START*/
+const poNum=s=>parseFloat(String(s).replace(/,/g,""));
+function poLines(a){const s=a.slice().sort((p,q)=>p.y-q.y||p.x-q.x),out=[];let c=null;s.forEach(t=>{if(c&&t.y-c.y<=3)c.a.push(t);else{c={y:t.y,a:[t]};out.push(c)}});return out.map(l=>{l.a.sort((p,q)=>p.x-q.x);return{y:l.y,a:l.a,t:l.a.map(x=>x.s).join(" ")}})}
+function poParseItems(its){
+ const A=its.filter(t=>t.s!=null&&String(t.s).trim()).map(t=>({s:String(t.s).trim(),x:t.x,y:t.y}));
+ const hd=A.find(t=>t.s==="Barcode"),hx=(n,d)=>{const h=A.find(t=>t.s===n);return h?h.x:d};
+ const dx=hx("Description",128),qx=hx("Qty",347),hy=hd?hd.y:-1e9;
+ const txt=poLines(A).map(l=>l.t).join("\n"),o={no:"",date:"",deliver:"",terms:"",supName:"",supPhone:"",supAddr:"",rows:[],sub:null,gst:null,total:null};
+ let m=txt.match(/PO\s*No\s*:\s*([A-Za-z0-9\-\/]+)/i);if(m)o.no=m[1];
+ m=txt.match(/Terms\s*:\s*(\d+)/i);if(m)o.terms=+m[1];
+ const re=/(Delivery\s+)?Date\s*:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/gi;
+ while((m=re.exec(txt))){const iso=m[4]+"-"+m[3].padStart(2,"0")+"-"+m[2].padStart(2,"0");if(m[1])o.deliver=iso;else if(!o.date)o.date=iso}
+ m=txt.match(/Sub\s*Total\s*:?\s*([\d,]+\.\d+)/i);if(m)o.sub=poNum(m[1]);
+ m=txt.match(/GST\s*\d*\s*%?\s*([\d,]+\.\d{2})/i);if(m)o.gst=poNum(m[1]);
+ m=txt.match(/(?:^|[^A-Za-z])Total\s*:?\s*([\d,]+\.\d{2})/i);if(m)o.total=poNum(m[1]);
+ const left=poLines(A.filter(t=>t.x<200)).map(l=>l.t),li=left.findIndex(t=>/^To\s*:/.test(t));
+ if(li>=0){let n=left[li].replace(/^To\s*:\s*/,"").trim(),k=li+1;if(!n){n=left[k]||"";k++}o.supName=n;const ad=[];for(;k<left.length&&!/^(Tel|Attn|Phone)\b/i.test(left[k]);k++)ad.push(left[k]);o.supAddr=ad.join(", ");const tl=(left[k]||"").match(/Tel\s*:\s*(\d[\d\s-]*)/i);if(tl)o.supPhone=tl[1].trim()}
+ const anc=A.filter(t=>t.y>hy+3&&t.x<dx-5&&/^(?:\d+\s+)?\d{8,14}$/.test(t.s)).map(t=>({y:t.y,code:t.s.match(/(\d{8,14})$/)[1]})).sort((a,b)=>a.y-b.y);
+ const last=anc.length?anc[anc.length-1].y:0,ends=A.filter(t=>/^SINGAPORE\s+DOLLAR/i.test(t.s)||/Sub\s*Total/i.test(t.s)).map(t=>t.y).filter(y=>y>last+3),end=Math.min(last+14,...(ends.length?ends:[1e12]));
+ anc.forEach((a,i)=>{const lo=i?(anc[i-1].y+a.y)/2:hy+3,hi=i<anc.length-1?(a.y+anc[i+1].y)/2:end;
+  const B=A.filter(t=>t.y>lo&&t.y<=hi),desc=poLines(B.filter(t=>t.x>=dx-3&&t.x<qx-3)).map(l=>l.t).join(" ");
+  const tail=B.filter(t=>t.x>=qx-3).sort((p,q)=>p.x-q.x).map(t=>t.s).join(" ");
+  const mm=tail.match(/^(\d+(?:\.\d+)?)\s+([A-Za-z]+)\s*(?:\([^)]*\))?\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)$/);
+  o.rows.push(mm?{code:a.code,desc,qty:+mm[1],uom:mm[2].toUpperCase(),price:poNum(mm[3]),amt:poNum(mm[4])}:{code:a.code,desc,qty:0,uom:"",price:0,amt:0,err:1})});
+ return o}
+/*PO_PARSE_END*/
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+let _pdfjs=null;
+async function loadPdfJs(){if(_pdfjs)return _pdfjs;
+ await new Promise((ok,no)=>{const sc=document.createElement("script");sc.src=PDFJS+"pdf.min.js";sc.onload=ok;sc.onerror=()=>no(new Error("pdfjs load"));document.head.appendChild(sc)});
+ const w=await(await fetch(PDFJS+"pdf.worker.min.js")).text();
+ window.pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([w],{type:"text/javascript"}));
+ return _pdfjs=window.pdfjsLib}
+async function poPdfItems(f){const lib=await loadPdfJs(),pdf=await lib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise,out=[];
+ for(let n=1;n<=pdf.numPages;n++){const tc=await(await pdf.getPage(n)).getTextContent();tc.items.forEach(t=>{const s=(t.str||"").trim();if(s)out.push({s,x:t.transform[4],y:(n-1)*1e5-t.transform[5]})})}
+ return out}
+async function poImport(f){toast(L("正在解析PDF…","Parsing PDF…"));
+ try{const d=poParseItems(await poPdfItems(f));if(!d.rows.length)throw new Error("no rows");d.file=f.name;S.poImp=d;go("po-import")}
+ catch(e){console.error(e);toast(L("无法识别该PDF:需为文字版PO单(不支持扫描件),首次使用需联网加载解析库","Cannot read this PDF: text-based PO only; first use needs internet"))}}
+ACT["po-up"]=()=>{const i=document.createElement("input");i.type="file";i.accept="application/pdf,.pdf";i.onchange=()=>{if(i.files[0])poImport(i.files[0])};i.click()};
+const poMatchSup=d=>{const n=(d.supName||"").trim().toLowerCase();if(!n)return null;return sups.find(x=>x.name.trim().toLowerCase()===n)||sups.find(x=>{const y=x.name.trim().toLowerCase();return y&&(n.includes(y)||y.includes(n))})||null};
+PG["po-import"]=()=>{const d=S.poImp,bk0=`<button class="btn" data-go="po-list">← ${L("返回","Back")}</button>`;
+ if(!d){main(head(L("导入PO单","Import PO"),bk0)+`<div class="empty">${L("没有待导入的PO单","Nothing to import")}</div>`);return}
+ const sm=poMatchSup(d),dup=!!d.no&&pos.some(p=>(p.note||"").includes(d.no));
+ const ok=d.rows.filter(r=>!r.err),sum=ok.reduce((a,r)=>a+r.amt,0),sumOk=d.sub==null||Math.abs(sum-d.sub)<0.02;
+ const nNew=ok.filter(r=>!findByCode(r.code)).length,bad=d.rows.length-ok.length;
+ const so=[["",L("— 请选择 —","— Choose —")],...sups.map(x=>[x.id,x.name]),...(d.supName?[["__new__",L("＋ 新建供应商:","＋ New supplier: ")+d.supName]]:[])];
+ const note=(d.no?L("客户PO号 ","PO ")+d.no:"")+(d.terms?L(" · 账期"+d.terms+"天"," · Terms "+d.terms+"d"):"")+(d.deliver?L(" · 交货 "," · Delivery ")+d.deliver:"");
+ main(head(L("导入PO单","Import PO"),bk0)+`<div class="card"><h3>${L("识别结果","Detected")} · ${esc(d.file||"")}</h3>
+ ${dup?`<p><span class="tag r">${L("该PO号已导入过,请确认是否重复","This PO number was already imported")}</span></p>`:""}
+ <div class="fg">${F("sup","供应商","Supplier",sm?sm.id:(d.supName?"__new__":""),{type:"select",opts:so,req:1})}${F("date","日期","Date",d.date||today(),{type:"date"})}${F("note","备注","Note",note,{w:"full"})}</div>
+ <p class="muted">${L("PDF合计","PDF total")}: ${d.total!=null?money(d.total):"—"} (${L("小计","sub")} ${d.sub!=null?money(d.sub):"—"} + GST ${d.gst!=null?money(d.gst):"—"}) · ${L("系统明细合计","Lines sum")}: ${money(sum)} ${sumOk?`<span class="tag g">✓</span>`:`<span class="tag r">${L("与PDF小计不符,请核对","Differs from PDF subtotal")}</span>`}</p></div>
+ <div class="card"><h3>${L("商品明细","Lines")} (${d.rows.length})</h3><div class="tw"><table class="rt"><thead><tr><th>#</th><th>${L("条码","Barcode")}</th><th>${L("描述","Description")}</th><th class="num">${L("数量","Qty")}</th><th class="num">${L("单价","Price")}</th><th class="num">${L("金额","Amount")}</th><th>${L("匹配","Match")}</th></tr></thead><tbody>
+ ${d.rows.map((r,k)=>{const m=r.err?null:findByCode(r.code),mis=!r.err&&Math.abs(r.qty*r.price-r.amt)>0.02;return`<tr><td data-label="#">${k+1}</td><td data-label="${L("条码","Barcode")}"><code>${esc(r.code)}</code></td><td data-label="${L("描述","Description")}">${esc(r.desc)}</td><td class="num" data-label="${L("数量","Qty")}">${r.qty}</td><td class="num" data-label="${L("单价","Price")}">${money(r.price)}</td><td class="num" data-label="${L("金额","Amount")}">${money(r.amt)}${mis?` <span class="tag r">≠</span>`:""}</td><td data-label="${L("匹配","Match")}">${r.err?`<span class="tag r">${L("无法识别","Unreadable")}</span>`:m?`<span class="tag g">${esc(pname(m))}</span>`:`<span class="tag o">${L("新商品","New")}</span>`}</td></tr>`}).join("")}</tbody></table></div></div>
+ <div class="card">${nNew?`<label style="display:block;margin-bottom:10px"><input type="checkbox" id="ip_new" checked> ${L("自动新建未匹配的商品("+nNew+" 个,库存为0,可稍后补充分类/售价)","Create unmatched products ("+nNew+", stock 0)")}</label>`:""}${bad?`<p class="muted">${L(bad+" 行无法识别,将被跳过","Skipping "+bad+" unreadable lines")}</p>`:""}
+ <div class="row"><button class="btn pri" data-act="poimp-save" data-id="draft">${L("生成采购单(草稿)","Create draft order")}</button><button class="btn" data-act="poimp-save" data-id="ordered">${L("生成并标记已下单","Create as Ordered")}</button><button class="btn" data-act="poimp-cancel">${L("放弃","Discard")}</button></div></div>`)};
+ACT["poimp-cancel"]=()=>{delete S.poImp;go("po-list")};
+ACT["poimp-save"]=st=>{const d=S.poImp;if(!d)return;let sid=V("sup");if(!sid){toast(L("请选择供应商","Choose a supplier"));return}
+ if(sid==="__new__"){const x={id:uid(),name:d.supName,contact:"",phone:d.supPhone||"",email:"",addr:d.supAddr||"",terms:d.terms?String(d.terms):"",notes:""};sups.push(x);SAVE.sups();sid=x.id}
+ sid=String(sid);const mk=$("ip_new")?$("ip_new").checked:false,sn=nm(sups,sid),lines=[];let made=0,skip=0;
+ d.rows.forEach(r=>{if(r.err){skip++;return}let it=findByCode(r.code);
+  if(!it){if(!mk){skip++;return}
+   const m=r.desc.match(/^(\S+)\s*(.*?)\s*(\d+(?:\.\d+)?\s?(?:KG|G|ML|L))?$/i)||[];
+   it={id:uid(),brand:m[1]||r.desc,d1:m[2]||"",d2:"",size:(m[3]||"").replace(/\s/g,""),sku:"",cat:"",mp:0,np:0,qs:0,qw:0,qty:0,box:0,ls:"",lw:"",min:0,unit:"",note:"",img:"",on:true,counted:null,exp:"",supplierItems:[]};items.push(it);made++}
+  let se=it.supplierItems.find(x=>String(x.supId)===sid);
+  if(!se){se=it.supplierItems.find(x=>!x.supId&&x.barcode===r.code);if(se){se.supId=sid;se.supName=sn}else{se={supId:sid,supName:sn,barcode:r.code,cost:0,note:""};it.supplierItems.push(se)}}
+  if(!(+se.cost>0))se.cost=r.price;
+  const ex=lines.find(l=>String(l.pid)===String(it.id));if(ex)ex.qty+=r.qty;else lines.push({pid:it.id,barcode:r.code,qty:r.qty,unit:"pc",perBox:1,cost:r.price})});
+ if(!lines.length){toast(L("没有可导入的商品","No lines to import"));return}
+ const date=V("date")||today(),po={id:uid(),no:poNo(date),sup:sid,date,note:V("note"),status:st==="ordered"?"ordered":"draft",lines};
+ pos.push(po);SAVE.items();SAVE.pos();delete S.poImp;
+ toast(L("已生成采购单 "+po.no+(made?`,新建商品 ${made} 个`:"")+(skip?`,跳过 ${skip} 行`:""),"Created "+po.no));go("po-detail-"+po.id)};
 
 /* ---------- login / auth ---------- */
 const AUTH=(()=>{
