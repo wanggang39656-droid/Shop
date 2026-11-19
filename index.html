@@ -628,7 +628,7 @@ const MV={in:["入库","Receive","g"],po_in:["采购入库","PO receipt","g"],up
 const tagM=t=>`<span class="tag ${(MV[t]||["","",""])[2]}">${(MV[t]?L(MV[t][0],MV[t][1]):t)}</span>`;
 function logMove(i,type,dqs,dqw,note){moves.unshift({id:uid(),t:new Date().toISOString(),pid:i.id,name:pname(i),code:itemPrimaryCode(i),type,dqs:dqs||0,dqw:dqw||0,note:note||""});if(moves.length>3000)moves.length=3000}
 function hl(txt,toks){txt=String(txt==null?"":txt);if(!toks||!toks.length)return esc(txt);
- const re=new RegExp("("+toks.map(x=>x.replace(/[.*+?^${}()|[\]\]/g,"\$&")).join("|")+")","gi");
+ const re=new RegExp("("+toks.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")","gi");
  return txt.split(re).map((p,i)=>i%2?"<mark>"+esc(p)+"</mark>":esc(p)).join("")}
 
 /* ---------- files / excel ---------- */
@@ -1442,8 +1442,7 @@ ACT["po-save"]=st=>{poD.sup=V("sup");poD.date=V("date")||today();poD.note=V("not
  SAVE.pos();poD=null;toast(L("已保存","Saved"));go("po-detail-"+o.id)};
 
 /* text / print */
-function poText(p){const it=l=>byId(items,l.pid);return[`${L("采购单","Purchase order")} ${p.no||""}`.trim(),`${L("供应商","Supplier")}: ${nm(sups,p.sup)}   ${L("日期","Date")}: ${p.date}`,...p.lines.map((l,k)=>{const bc=poLineBarcode(l,p);return`${k+1}. ${it(l)?pname(it(l)):"?"}${bc?` [${bc}]`:""} × ${lnTxt(l)}`}),`${L("合计","Total")}: ${money(poTotal(p))}`,p.note?`${L("备注","Note")}: ${p.note}`:""].filter(Boolean).join("
-")}
+function poText(p){const it=l=>byId(items,l.pid);return[`${L("采购单","Purchase order")} ${p.no||""}`.trim(),`${L("供应商","Supplier")}: ${nm(sups,p.sup)}   ${L("日期","Date")}: ${p.date}`,...p.lines.map((l,k)=>{const bc=poLineBarcode(l,p);return`${k+1}. ${it(l)?pname(it(l)):"?"}${bc?` [${bc}]`:""} × ${lnTxt(l)}`}),`${L("合计","Total")}: ${money(poTotal(p))}`,p.note?`${L("备注","Note")}: ${p.note}`:""].filter(Boolean).join("\n")}
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast(L("已复制,可粘贴到微信 / WhatsApp","Copied"))}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast(L("已复制","Copied"))}catch(_){toast(L("复制失败","Copy failed"))}a.remove()}}
 ACT["po-txt"]=id=>copyText(poText(byId(pos,id)));
 ACT["po-txt-draft"]=()=>copyText(poText(Object.assign({},poD,{sup:V("sup")||poD.sup})));
