@@ -132,9 +132,13 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 @media(max-width:480px){.sheet{justify-content:start}}
 
 .pc{display:flex;gap:10px;align-items:center;min-width:0;text-align:left}.pc .thumb,.pc .noimg{flex:none;width:46px;height:46px}.pt{min-width:0}
+#login{display:none;position:fixed;inset:0;z-index:70;background:var(--bg);align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+#login .card{width:min(380px,100%);margin:auto}
+#usr{font-size:12px;color:var(--mut);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc{font:700 20px/1.4 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;background:var(--bg);border:1px dashed var(--pri);border-radius:8px;padding:12px;margin:10px 0;user-select:all;-webkit-user-select:all}
 </style></head><body>
-<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button></div><div class="content" id="main"></div></div></div>
-<nav class="bnav" id="bnav"></nav><div id="toast"></div><div id="scan_modal"></div><div id="zoom"></div>
+<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button><span id="usr"></span><button class="btn sm" id="pwbtn" data-act="pw" title="修改密码 / Change password">🔑</button><button class="btn sm" id="outbtn" data-act="logout"></button></div><div class="content" id="main"></div></div></div>
+<nav class="bnav" id="bnav"></nav><div id="toast"></div><div id="scan_modal"></div><div id="zoom"></div><div id="login"></div>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -663,15 +667,15 @@ function cur(){const h=(location.hash||"#home").slice(1);const m=h.match(/^([a-z
 const go=h=>{if(location.hash==="#"+h)render();else location.hash=h};
 function tabsOf(p){return TABS[p]?TABS[p]():null}
 function renderSide(p,id){const act=actId(p,id);
- $("side").innerHTML=`<div class="brand"><b>${esc(CFG.shop||L("杂货店管理系统","Shop Manager"))}</b></div>`+MENU.map(m=>{const open=m.c.some(c=>c.id===act);
+ $("side").innerHTML=`<div class="brand"><b>${esc(CFG.shop||L("杂货店管理系统","Shop Manager"))}</b></div>`+MENU.filter(m=>canM(m.id)).map(m=>{const open=m.c.some(c=>c.id===act);
   if(m.c.length===1)return`<a class="m1 ${open?"on":""}" data-go="${m.c[0].id}">${m.i} ${L(m.z,m.e)}</a>`;
   return`<div class="mg ${open?"open":""}"><a class="m1 ${open?"on":""}" data-mg="1">${m.i} ${L(m.z,m.e)}<span class="car">›</span></a><div class="m2w">${m.c.map(c=>{const tb=c.id===act?tabsOf(c.id):null;
    return`<a class="m2 ${c.id===act?"on":""}" data-go="${c.id}">${L(c.z,c.e)}${c.id==="stk-expiry"&&expAlerts().length?`<span class="bdg">${expAlerts().length}</span>`:""}</a>`+(tb?tb.map(t=>`<a class="m3 ${((S[c.id]||{}).tab||tb[0].id)===t.id?"on":""}" data-tab3="${c.id}|${t.id}">${L(t.z,t.e)}</a>`).join(""):"")}).join("")}</div></div>`}).join("");
  const [m1,m2]=find2(act);const sub=PARENT[p]||EDITP[p]?` › <b>${L(...({"prod-detail":["商品详情","Detail"],"sup-detail":["供应商详情","Detail"],"po-detail":["采购单详情","Detail"],"staff-detail":["员工详情","Detail"],"stk-detail":["盘点详情","Detail"],"prod-edit":["编辑商品","Edit"],"sup-edit":["编辑供应商","Edit"],"po-edit":["编辑采购单","Edit"],"staff-edit":["编辑员工","Edit"]}[p]||["",""]))}</b>`:"";
  $("crumb").innerHTML=`${L(m1.z,m1.e)} › ${m1.c.length>1?L(m2.z,m2.e):""}${id&&EDITP[p]||PARENT[p]?sub:""}`.replace(/ › $/,"");
  const bn=[["home","🏠",L("首页","Home")],["prod-list","📦",L("商品","Products")],["stk-overview","📋",L("库存","Stock")],["po-list","🧾",L("采购","Orders")]];
- $("bnav").innerHTML=bn.map(b=>`<a data-go="${b[0]}" class="${find2(act)[0]===find2(b[0])[0]?"on":""}"><i>${b[1]}</i>${b[2]}</a>`).join("")+`<a data-act="drawer"><i>☰</i>${L("菜单","Menu")}</a>`}
-function render(top){revokeAllObjUrl();const{p,id}=cur();renderSide(p,id);$("langbtn").textContent=LANG==="zh"?"EN":"中文";PG[p](id);hydrateImages($("main"));if(top)window.scrollTo(0,0)}
+ $("bnav").innerHTML=bn.filter(b=>canM(find2(b[0])[0].id)).map(b=>`<a data-go="${b[0]}" class="${find2(act)[0]===find2(b[0])[0]?"on":""}"><i>${b[1]}</i>${b[2]}</a>`).join("")+`<a data-act="drawer"><i>☰</i>${L("菜单","Menu")}</a>`}
+function render(top){if(!AUTH.gate())return;revokeAllObjUrl();const{p,id}=cur();renderSide(p,id);$("langbtn").textContent=LANG==="zh"?"EN":"中文";(canM(find2(actId(p,id))[0].id)?PG[p](id):main(`<div class="empty">${L("🔒 当前账号没有访问此模块的权限","🔒 You do not have permission for this module")}</div>`));hydrateImages($("main"));if(top)window.scrollTo(0,0)}
 const main=h=>{$("main").innerHTML=h};
 const head=(t,r)=>`<div class="ph"><h2>${t}</h2><div class="row">${r||""}</div></div>`;
 
@@ -831,21 +835,27 @@ PG["staff-list"]=()=>mount("staff-list",{data:()=>staff,hay:m=>[m.name,m.account
  cols:[{h:["姓名","Name"],f:(m,t)=>`<a class="lnk" data-go="staff-detail-${m.id}">${hl(m.name,t)}</a>`},{h:["账号","Account"],f:(m,t)=>hl(m.account,t)},{h:["电话","Phone"],f:(m,t)=>hl(m.phone,t)},{h:["角色","Role"],f:m=>esc(nm(roles,m.role))},{h:["状态","Status"],f:stTag},{h:["入职日期","Joined"],f:m=>esc(m.joined)},{h:["操作","Actions"],f:m=>`<button class="btn sm" data-go="staff-detail-${m.id}">${L("详情","Detail")}</button> <button class="btn sm" data-go="staff-edit-${m.id}">${L("编辑","Edit")}</button> <button class="btn sm" data-act="staff-tog" data-id="${m.id}">${m.status==="off"?L("启用","Enable"):L("停用","Disable")}</button> <button class="btn sm red" data-act="staff-del" data-id="${m.id}">${L("删除","Del")}</button>`}],
  tool:`<button class="btn pri" data-go="staff-edit">＋ ${L("新增员工","Add")}</button>`},head(L("员工账号","Staff accounts")));
 PG["staff-edit"]=id=>{const m=id?byId(staff,id):null;if(id&&!m){main(`<div class="empty">${L("员工不存在","Not found")}</div>`);return}const v=m||{name:"",account:"",phone:"",email:"",role:roles[0]?roles[0].id:"",status:"on",joined:today(),note:""};
- main(head(m?L("编辑员工","Edit staff"):L("新增员工","Add staff"),`${bk}${m?"staff-detail-"+m.id:"staff-list"}">← ${L("返回","Back")}</button>`)+`<div class="card"><div class="fg">${F("name","姓名","Name",v.name,{req:1})}${F("account","登录账号","Account",v.account,{req:1})}${F("phone","电话","Phone",v.phone)}${F("email","邮箱","Email",v.email)}${F("role","角色","Role",v.role,{type:"select",opts:roles.map(r=>[r.id,r.name])})}${F("status","状态","Status",v.status,{type:"select",opts:[["on",L("启用","Active")],["off",L("停用","Disabled")]]})}${F("joined","入职日期","Joined",v.joined,{type:"date"})}${F("note","备注","Note",v.note,{w:"full",type:"textarea"})}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="staff-save" data-id="${m?m.id:""}">${L("保存","Save")}</button></div></div>`)};
-ACT["staff-save"]=id=>{const o={name:V("name"),account:V("account"),phone:V("phone"),email:V("email"),role:V("role"),status:V("status"),joined:V("joined"),note:V("note")};
+ main(head(m?L("编辑员工","Edit staff"):L("新增员工","Add staff"),`${bk}${m?"staff-detail-"+m.id:"staff-list"}">← ${L("返回","Back")}</button>`)+`<div class="card"><div class="fg">${F("name","姓名","Name",v.name,{req:1})}${F("account","登录账号","Account",v.account,{req:1})}<label class="fld"><span>${L(m?"登录密码(留空则不修改)":"登录密码(至少6位)",m?"Password (blank = keep)":"Password (min 6)")}${m?"":" *"}</span><input class="in" id="f_pw" type="password" autocomplete="new-password"></label>${F("phone","电话","Phone",v.phone)}${F("email","邮箱","Email",v.email)}${F("role","角色","Role",v.role,{type:"select",opts:roles.map(r=>[r.id,r.name])})}${F("status","状态","Status",v.status,{type:"select",opts:[["on",L("启用","Active")],["off",L("停用","Disabled")]]})}${F("joined","入职日期","Joined",v.joined,{type:"date"})}${F("note","备注","Note",v.note,{w:"full",type:"textarea"})}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="staff-save" data-id="${m?m.id:""}">${L("保存","Save")}</button></div></div>`)};
+ACT["staff-save"]=async id=>{const o={name:V("name"),account:V("account"),phone:V("phone"),email:V("email"),role:V("role"),status:V("status"),joined:V("joined"),note:V("note")};
  if(!o.name||!o.account){toast(L("请填写姓名和登录账号","Name and account required"));return}
  if(staff.find(x=>x.account.toLowerCase()===o.account.toLowerCase()&&String(x.id)!==String(id))){toast(L("该账号已存在","Account exists"));return}
- let m=id?byId(staff,id):null;if(m)Object.assign(m,o);else{m={id:uid(),...o};staff.push(m)}SAVE.staff();toast(L("已保存","Saved"));go("staff-detail-"+m.id)};
-ACT["staff-del"]=(id,el)=>cf(el,()=>{staff=staff.filter(m=>String(m.id)!==String(id));SAVE.staff();render()});
-ACT["staff-tog"]=id=>{const m=byId(staff,id);m.status=m.status==="off"?"on":"off";SAVE.staff();LST["staff-list"].paint()};
+ const pw=($("f_pw")||{}).value||"";
+ if(pw&&pw.length<6){toast(L("密码至少6位","Password must be at least 6 characters"));return}
+ if(!id&&!pw){toast(L("请设置登录密码","Please set a password"));return}
+ if(id&&String(id)===String(AUTH.uid())&&o.status==="off"){toast(L("不能停用当前登录的账号","Cannot disable the signed-in account"));return}
+ let m=id?byId(staff,id):null;if(m)Object.assign(m,o);else{m={id:uid(),...o};staff.push(m)}
+ try{if(pw)await AUTH.setPw(m,pw)}catch(e){toast(L("当前环境不支持加密,请用 https 打开","Crypto unavailable; open via https"));return}
+ SAVE.staff();toast(L("已保存","Saved"));go("staff-detail-"+m.id)};
+ACT["staff-del"]=(id,el)=>cf(el,()=>{if(String(id)===String(AUTH.uid())){toast(L("不能删除当前登录的账号","Cannot delete the signed-in account"));return}staff=staff.filter(m=>String(m.id)!==String(id));SAVE.staff();render()});
+ACT["staff-tog"]=id=>{if(String(id)===String(AUTH.uid())){toast(L("不能停用当前登录的账号","Cannot disable the signed-in account"));return}const m=byId(staff,id);m.status=m.status==="off"?"on":"off";SAVE.staff();LST["staff-list"].paint()};
 const PN={dash:["仪表盘","Dashboard"],staff:["成员管理","Staff"],prod:["商品管理","Products"],label:["价签管理","Labels"],sup:["供应商管理","Suppliers"],po:["采购管理","Purchasing"],stk:["库存盘点","Stocktake"],rep:["报表中心","Reports"],set:["设置","Settings"]};
 PG["staff-detail"]=id=>{const m=byId(staff,id);if(!m){main(`<div class="empty">${L("员工不存在","Not found")}</div>`);return}const r=byId(roles,m.role);
- main(head(esc(m.name)+" "+stTag(m),`${bk}staff-list">← ${L("返回","Back")}</button><button class="btn pri" data-go="staff-edit-${m.id}">${L("编辑","Edit")}</button>`)+`<div class="card"><div class="dgrid">${dg(L("姓名","Name"),esc(m.name))}${dg(L("登录账号","Account"),esc(m.account))}${dg(L("角色","Role"),esc(r?r.name:""))}${dg(L("电话","Phone"),esc(m.phone))}${dg(L("邮箱","Email"),esc(m.email))}${dg(L("入职日期","Joined"),esc(m.joined))}${dg(L("备注","Note"),esc(m.note))}</div></div><div class="card"><h3>${L("角色权限","Permissions")}</h3>${r?PERMS.map(k=>`<span class="tag ${r.perms.includes(k)?"g":""}" style="margin:2px">${r.perms.includes(k)?"✓ ":"✕ "}${L(...PN[k])}</span>`).join(""):""}<p class="muted">${L("权限目前仅作记录,系统尚未启用登录拦截。","Permissions are informational; login enforcement is not enabled.")}</p></div>`)};
+ main(head(esc(m.name)+" "+stTag(m),`${bk}staff-list">← ${L("返回","Back")}</button><button class="btn pri" data-go="staff-edit-${m.id}">${L("编辑","Edit")}</button>`)+`<div class="card"><div class="dgrid">${dg(L("姓名","Name"),esc(m.name))}${dg(L("登录账号","Account"),esc(m.account))}${dg(L("角色","Role"),esc(r?r.name:""))}${dg(L("电话","Phone"),esc(m.phone))}${dg(L("邮箱","Email"),esc(m.email))}${dg(L("入职日期","Joined"),esc(m.joined))}${dg(L("备注","Note"),esc(m.note))}</div></div><div class="card"><h3>${L("角色权限","Permissions")}</h3>${r?PERMS.map(k=>`<span class="tag ${r.perms.includes(k)?"g":""}" style="margin:2px">${r.perms.includes(k)?"✓ ":"✕ "}${L(...PN[k])}</span>`).join(""):""}<p class="muted">${L("已启用权限控制:员工登录后只能使用所属角色勾选的模块。","Permissions are enforced: staff can only use the modules ticked for their role.")}</p></div>`)};
 
 /* roles */
 PG["role-list"]=()=>{const eid=S.role_ed,e=eid?byId(roles,eid):null;
  const lp=listPage("role-list",{data:()=>roles,hay:r=>r.name+" "+(r.note||""),cols:[{h:["角色","Role"],f:(r,t)=>hl(r.name,t)},{h:["说明","Note"],f:r=>esc(r.note)},{h:["权限模块","Modules"],f:r=>r.perms.map(k=>L(...PN[k])).join("、")},{h:["员工数","Staff"],cls:"num",f:r=>staff.filter(m=>String(m.role)===String(r.id)).length},{h:["操作","Actions"],f:r=>`<button class="btn sm" data-act="role-edit" data-id="${r.id}">${L("编辑","Edit")}</button> <button class="btn sm red" data-act="role-del" data-id="${r.id}">${L("删除","Del")}</button>`}]});
- main(head(L("角色权限","Roles & permissions"))+`<div class="card"><h3>${e?L("编辑角色","Edit role"):L("新增角色","Add role")}</h3><div class="fg">${F("name","角色名称","Role",e?e.name:"",{req:1})}${F("note","说明","Note",e?e.note:"")}</div><div class="row" style="margin:10px 0">${PERMS.map(k=>`<label class="tag" style="cursor:pointer"><input type="checkbox" class="perm" value="${k}" ${(e?e.perms:PERMS).includes(k)?"checked":""}> ${L(...PN[k])}</label>`).join("")}</div><div class="row"><button class="btn pri" data-act="role-save">${L("保存","Save")}</button>${e?`<button class="btn" data-act="role-cancel">${L("取消","Cancel")}</button>`:""}</div><p class="muted">${L("权限目前仅作记录,系统尚未启用登录拦截。","Permissions are informational; login enforcement is not enabled.")}</p></div>`+lp.html);lp.paint()};
+ main(head(L("角色权限","Roles & permissions"))+`<div class="card"><h3>${e?L("编辑角色","Edit role"):L("新增角色","Add role")}</h3><div class="fg">${F("name","角色名称","Role",e?e.name:"",{req:1})}${F("note","说明","Note",e?e.note:"")}</div><div class="row" style="margin:10px 0">${PERMS.map(k=>`<label class="tag" style="cursor:pointer"><input type="checkbox" class="perm" value="${k}" ${(e?e.perms:PERMS).includes(k)?"checked":""}> ${L(...PN[k])}</label>`).join("")}</div><div class="row"><button class="btn pri" data-act="role-save">${L("保存","Save")}</button>${e?`<button class="btn" data-act="role-cancel">${L("取消","Cancel")}</button>`:""}</div><p class="muted">${L("已启用权限控制:员工登录后只能使用所属角色勾选的模块。","Permissions are enforced: staff can only use the modules ticked for their role.")}</p></div>`+lp.html);lp.paint()};
 ACT["role-save"]=()=>{const n=V("name");if(!n){toast(L("请填写角色名称","Name required"));return}const ps=[...document.querySelectorAll(".perm:checked")].map(x=>x.value);const e=S.role_ed?byId(roles,S.role_ed):null;
  if(e){e.name=n;e.note=V("note");e.perms=ps}else roles.push({id:uid(),name:n,note:V("note"),perms:ps});SAVE.roles();S.role_ed=null;render()};
 ACT["role-edit"]=id=>{S.role_ed=id;render(true)};ACT["role-cancel"]=()=>{S.role_ed=null;render()};
@@ -1621,12 +1631,82 @@ document.addEventListener("change",async e=>{if(e.target.id!=="bak_in")return;co
  }e.target.value=""});
 
 ACT["bak-reset"]=(_,el)=>cf(el,async()=>{
- ["labels2","suppliers1","stockhist1","cats1","staff1","roles1","locs1","moves1","batches1","pos1","settings1"].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+ ["labels2","suppliers1","stockhist1","cats1","staff1","roles1","locs1","moves1","batches1","pos1","settings1","authrec1","sess1"].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
  await ImgDB.clear();
  BlobPool.clear();
  location.reload();
 });
 PG["set-about"]=()=>main(head(L("关于系统","About"))+`<div class="card"><p><b>${L("杂货店管理系统","Provision Shop Manager")}</b></p><p class="muted">${L("所有数据保存在本机浏览器中(localStorage + IndexedDB),关闭页面或断网都不会丢失。请定期在“设置 › 数据导入导出”下载完整 ZIP 备份。","All data is stored locally in this browser (localStorage + IndexedDB) and works offline. Download a full ZIP backup regularly in Settings › Data backup.")}</p></div>`);
+
+/* ---------- login / auth ---------- */
+const AUTH=(()=>{
+ const SK="sess1",RK="authrec1",enc=new TextEncoder();
+ let mode="",cm="",fail=0,lock=0,code="";
+ const hx=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+ const rnd=()=>hx(crypto.getRandomValues(new Uint8Array(16)));
+ async function hashPw(pw,salt){const k=await crypto.subtle.importKey("raw",enc.encode(pw),"PBKDF2",false,["deriveBits"]);return hx(await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:enc.encode(salt),iterations:150000},k,256))}
+ const getS=()=>{for(const st of[sessionStorage,localStorage]){try{const x=JSON.parse(st.getItem(SK)||"null");if(x&&(!x.t||x.t>Date.now()))return x}catch(e){}}return null};
+ const clrS=()=>{[sessionStorage,localStorage].forEach(st=>{try{st.removeItem(SK)}catch(e){}})};
+ const start=(m,rem)=>{clrS();try{(rem?localStorage:sessionStorage).setItem(SK,JSON.stringify({u:m.id,t:rem?Date.now()+30*864e5:0}))}catch(e){}};
+ const me=()=>{const x=getS(),m=x&&byId(staff,x.u);return m&&m.ph&&m.status!=="off"?m:null};
+ const can=k=>{const m=me(),r=m&&byId(roles,m.role);return!!r&&r.perms.includes(k)};
+ const g=id=>($(id)||{}).value||"";
+ const err=t=>{const e=$("lg_e");if(e)e.textContent=t};
+ const setPw=async(m,pw)=>{m.salt=rnd();m.ph=await hashPw(pw,m.salt);SAVE.staff()};
+ const findAcc=a=>staff.find(x=>String(x.account).toLowerCase()===a.trim().toLowerCase());
+ const adminRole=()=>{let r=roles.find(x=>PERMS.every(k=>x.perms.includes(k)));if(!r){r={id:uid(),name:"管理员",note:"全部权限",perms:PERMS.slice()};roles.push(r);SAVE.roles()}return r};
+ const newCode=()=>{const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";return[...crypto.getRandomValues(new Uint8Array(16))].map(x=>A[x%32]).join("").replace(/(.{4})(?=.)/g,"$1-")};
+ const locked=()=>{if(Date.now()<lock){err(L("尝试次数过多,请 30 秒后再试","Too many attempts, retry in 30s"));return true}return false};
+ const bad=()=>{if(++fail>=5){lock=Date.now()+30000;fail=0}};
+ const chkPw=()=>{const p=g("lg_p");if(p.length<6){err(L("密码至少6位","Password must be at least 6 characters"));return null}if(p!==g("lg_p2")){err(L("两次输入的密码不一致","Passwords do not match"));return null}return p};
+
+ function paint(m){cm=m;
+  const inp=(id,z,e,t,ac)=>`<label class="fld" style="margin-bottom:10px"><span>${L(z,e)}</span><input class="in" id="${id}" type="${t||"text"}" autocomplete="${ac||"off"}" autocapitalize="off" autocorrect="off" spellcheck="false"></label>`;
+  const T={setup:["创建管理员账号","Create admin account"],login:["登录","Sign in"],recover:["用恢复码重置密码","Reset password with recovery code"],chpw:["修改密码","Change password"],code:["请保存恢复码","Save your recovery code"]}[m];
+  const btn=(a,z,e,c)=>`<button class="btn ${c||""}" data-act="${a}" style="margin-right:8px">${L(z,e)}</button>`;
+  let b="";
+  if(m==="login")b=inp("lg_a","账号","Account","text","username")+inp("lg_p","密码","Password","password","current-password")+`<label class="muted" style="display:block;margin-bottom:12px"><input type="checkbox" id="lg_r" checked> ${L("保持登录 30 天","Keep me signed in for 30 days")}</label>`+btn("lg-ok","登录","Sign in","pri")+btn("lg-rec","忘记密码?","Forgot password?");
+  else if(m==="setup")b=`<p class="muted">${L("首次使用,请先创建管理员账号。之后其他员工可在“成员管理”中添加。","First run: create the admin account. Other staff can be added under Staff later.")}</p>`+inp("lg_n","姓名","Name")+inp("lg_a","登录账号","Account","text","username")+inp("lg_p","密码(至少6位)","Password (min 6)","password","new-password")+inp("lg_p2","确认密码","Confirm password","password","new-password")+btn("lg-ok","创建并进入","Create & enter","pri");
+  else if(m==="recover")b=inp("lg_a","账号","Account","text","username")+inp("lg_c","恢复码","Recovery code")+inp("lg_p","新密码(至少6位)","New password (min 6)","password","new-password")+inp("lg_p2","确认新密码","Confirm new password","password","new-password")+btn("lg-ok","重置密码","Reset","pri")+btn("lg-back","返回","Back");
+  else if(m==="chpw")b=inp("lg_o","当前密码","Current password","password","current-password")+inp("lg_p","新密码(至少6位)","New password (min 6)","password","new-password")+inp("lg_p2","确认新密码","Confirm new password","password","new-password")+btn("lg-ok","保存","Save","pri")+btn("lg-back","取消","Cancel");
+  else b=`<p class="muted">${L("忘记管理员密码时,可用此恢复码重置。请截图或抄写后妥善保管,此码只显示这一次。","Use this code to reset the admin password if you forget it. Save it now — it is shown only once.")}</p><div class="rc">${code}</div>`+btn("lg-ok","我已保存,继续","I saved it, continue","pri");
+  $("login").innerHTML=`<div class="card"><h3 style="font-size:17px;margin-bottom:2px">${esc(CFG.shop||L("杂货店管理系统","Shop Manager"))}</h3><div class="muted" style="margin-bottom:12px">${L(...T)}</div>${b}<div id="lg_e" class="tag r" style="display:block;margin-top:10px;white-space:normal;background:none;padding:0"></div><div style="margin-top:12px"><a class="lnk muted" data-act="lang">${LANG==="zh"?"English":"中文"}</a></div></div>`;
+  setTimeout(()=>{const f=$("login").querySelector("input");if(f)f.focus()},50)}
+
+ function gate(){const u=me(),lg=$("login");
+  const m=code?"code":!staff.some(x=>x.ph)?"setup":!u?(mode==="recover"?"recover":"login"):mode==="chpw"?"chpw":"";
+  if(!u){$("main").innerHTML="";$("side").innerHTML="";$("crumb").innerHTML="";$("bnav").innerHTML="";$("usr").textContent="";$("pwbtn").style.display=$("outbtn").style.display="none"}
+  else{$("usr").textContent=u.name;$("pwbtn").style.display=$("outbtn").style.display="";$("outbtn").textContent=L("退出","Logout")}
+  if(!m){lg.style.display="none";lg.innerHTML="";return true}
+  if(lg.style.display!=="flex"||cm!==m||!lg.innerHTML){paint(m);lg.style.display="flex"}
+  return!!u}
+
+ ACT["lg-ok"]=async()=>{try{
+  if(cm==="code"){code="";mode="";render(true);return}
+  if(cm==="login"){if(locked())return;const m=findAcc(g("lg_a"));
+   if(!m||!m.ph||m.status==="off"||await hashPw(g("lg_p"),m.salt)!==m.ph){bad();err(L("账号或密码错误,或账号已停用","Wrong account or password, or account disabled"));return}
+   fail=0;start(m,$("lg_r").checked);mode="";history.replaceState(null,"","#home");render(true);return}
+  if(cm==="setup"){const n=g("lg_n").trim(),a=g("lg_a").trim();if(!n||!a){err(L("请填写姓名和账号","Name and account required"));return}
+   const p=chkPw();if(!p)return;const ar=adminRole();let m=findAcc(a);
+   if(m){m.role=ar.id;m.status="on";m.name=m.name||n}else{m={id:uid(),name:n,account:a,phone:"",email:"",role:ar.id,status:"on",joined:today(),note:""};staff.push(m)}
+   await setPw(m,p);const c=newCode(),s=rnd();localStorage.setItem(RK,JSON.stringify({s,h:await hashPw(c.replace(/-/g,""),s)}));
+   start(m,true);code=c;render(true);return}
+  if(cm==="recover"){if(locked())return;let rec=null;try{rec=JSON.parse(localStorage.getItem(RK)||"null")}catch(e){}
+   if(!rec){err(L("此设备没有恢复码,无法重置","No recovery code on this device"));return}
+   const m=findAcc(g("lg_a")),c=g("lg_c").toUpperCase().replace(/[^A-Z0-9]/g,"");
+   if(!m||await hashPw(c,rec.s)!==rec.h){bad();err(L("账号或恢复码不正确","Wrong account or recovery code"));return}
+   const p=chkPw();if(!p)return;await setPw(m,p);fail=0;mode="";toast(L("密码已重置,请登录","Password reset, please sign in"));render(true);return}
+  if(cm==="chpw"){const m=me();if(!m||await hashPw(g("lg_o"),m.salt)!==m.ph){err(L("当前密码不正确","Current password is wrong"));return}
+   const p=chkPw();if(!p)return;await setPw(m,p);mode="";toast(L("密码已修改","Password changed"));render()}
+ }catch(e){console.error(e);err(L("当前环境不支持加密功能,请通过 https 打开","Crypto unavailable; please open via https"))}};
+ ACT["lg-rec"]=()=>{mode="recover";render()};
+ ACT["lg-back"]=()=>{mode="";render()};
+ ACT.pw=()=>{mode="chpw";render()};
+ ACT.logout=()=>{clrS();mode="";code="";history.replaceState(null,"","#home");render(true)};
+ $("login").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"){e.preventDefault();ACT["lg-ok"]()}});
+ return{gate,me,can,setPw,uid:()=>{const m=me();return m?m.id:null}}
+})();
+const canM=k=>k==="home"||AUTH.can(k);
 
 /* ---------- boot ---------- */
 (async function boot() {
