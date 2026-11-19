@@ -133,7 +133,7 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 
 .pc{display:flex;gap:10px;align-items:center;min-width:0;text-align:left}.pc .thumb,.pc .noimg{flex:none;width:46px;height:46px}.pt{min-width:0}
 </style></head><body>
-<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button><button class="btn sm red" id="logoutbtn" data-act="logout" style="display:none"></button></div><div class="content" id="main"></div></div></div>
+<div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" id="burgerbtn" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button><button class="btn sm red" id="logoutbtn" data-act="logout" style="display:none"></button></div><div class="content" id="main"></div></div></div>
 <nav class="bnav" id="bnav"></nav><div id="toast"></div><div id="scan_modal"></div><div id="zoom"></div>
 <script>
 "use strict";
@@ -148,6 +148,16 @@ const fmtD=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+Str
 const today=()=>fmtD(new Date());
 const addDays=(s,n)=>{const d=new Date(s+"T00:00:00");d.setDate(d.getDate()+n);return fmtD(d)};
 function toast(m){const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",2600)}
+
+/* ---------- core layout & form helpers (declared early to avoid TDZ) ---------- */
+const main=h=>{$("main").innerHTML=h};
+const head=(t,r)=>`<div class="ph"><h2>${t}</h2><div class="row">${r||""}</div></div>`;
+const F=(k,z,e,v,o)=>{o=o||{};const id="f_"+k,val=v==null?"":v;let inp;
+ if(o.type==="select")inp=`<select class="in" id="${id}">${o.opts.map(([ov,ol])=>`<option value="${esc(ov)}" ${String(ov)===String(val)?"selected":""}>${esc(ol)}</option>`).join("")}</select>`;
+ else if(o.type==="textarea")inp=`<textarea class="in" id="${id}" rows="3">${esc(val)}</textarea>`;
+ else inp=`<input class="in" id="${id}" type="${o.type||"text"}" ${o.step?`step="${o.step}"`:""} ${o.max?`maxlength="${o.max}"`:""} ${o.type==="number"?'min="0"':""} ${o.ac?`autocomplete="${o.ac}"`:""} value="${esc(val)}">`;
+ return`<label class="fld ${o.w||""}"><span>${L(z,e)}${o.req?" *":""}</span>${inp}</label>`};
+const V=k=>{const e=$("f_"+k);return e?e.value.trim():""};
 
 /* ---------- IndexedDB Image Store & Blob URL Manager ---------- */
 const ImgDB = {
@@ -388,7 +398,7 @@ const itemHasSup = (i, sid) => itemSupIds(i).includes(String(sid));
 const itemEntryForSup = (i, sid) => (Array.isArray(i.supplierItems) ? i.supplierItems.find(x => String(x.supId) === String(sid)) : null) || itemPrimaryEntry(i);
 
 function sanitizeFilename(s) {
-  return String(s || "").replace(/[\/:*?"<>|]/g, "_").replace(/[ -]/g, "").replace(/\s+/g, " ").trim().replace(/\.+$/, "");
+  return String(s || "").replace(/[\/:*?"<>|]/g, "_").replace(/[ - ]/g, "").replace(/\s+/g, " ").trim().replace(/\.+$/, "");
 }
 
 async function exportAllImagesZip() {
@@ -681,6 +691,8 @@ function syncAuthChrome(authed){
   lb.style.display=authed?"inline-block":"none";
   lb.textContent=L("登出","Logout");
  }
+ const bb=$("burgerbtn");
+ if(bb)bb.style.display=authed?"":"none";
  $("side").style.display=authed?"":"none";
  $("bnav").style.display=authed?"":"none";
  $("mask").classList.remove("show");
@@ -690,34 +702,38 @@ function syncAuthChrome(authed){
 function renderSetupPage(){
  syncAuthChrome(false);
  $("crumb").innerHTML=`<b>${L("首次设置管理员","Initial Admin Setup")}</b>`;
- main(`<div class="card" style="max-width:440px;margin:32px auto">
+ main(`<div class="card" id="auth_box" style="max-width:440px;margin:32px auto">
   <h3>${L("设置管理员账号密码","Set Admin Credentials")}</h3>
   <p class="muted">${L("首次使用系统，请先创建管理员账号和密码，保存后将保存在本机浏览器中。","First time using the system. Please create an admin username and password stored locally in your browser.")}</p>
   <div class="fg">
-   ${F("setup_user","管理员账号","Admin Username","",{req:1,w:"full"})}
-   ${F("setup_pass","管理员密码","Admin Password","",{type:"password",req:1,w:"full"})}
-   ${F("setup_pass2","确认管理员密码","Confirm Password","",{type:"password",req:1,w:"full"})}
+   ${F("setup_user","管理员账号","Admin Username","",{req:1,w:"full",ac:"username"})}
+   ${F("setup_pass","管理员密码","Admin Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
+   ${F("setup_pass2","确认管理员密码","Confirm Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
   </div>
   <div class="row" style="margin-top:14px">
    <button class="btn pri" data-act="auth-setup">${L("保存并进入系统","Save & Continue")}</button>
   </div>
  </div>`);
+ const box=$("auth_box");
+ if(box)box.onkeydown=e=>{if(e.key==="Enter")ACT["auth-setup"]()};
 }
 
 function renderLoginPage(){
  syncAuthChrome(false);
  $("crumb").innerHTML=`<b>${L("系统登录","Sign In")}</b>`;
- main(`<div class="card" style="max-width:420px;margin:40px auto">
+ main(`<div class="card" id="auth_box" style="max-width:420px;margin:40px auto">
   <h3>${esc(CFG.shop||L("杂货店管理系统","Shop Manager"))} · ${L("登录","Sign In")}</h3>
   <p class="muted">${L("请输入管理员账号和密码","Enter your admin username and password")}</p>
   <div class="fg">
-   ${F("login_user","管理员账号","Admin Username","",{req:1,w:"full"})}
-   ${F("login_pass","管理员密码","Admin Password","",{type:"password",req:1,w:"full"})}
+   ${F("login_user","管理员账号","Admin Username","",{req:1,w:"full",ac:"username"})}
+   ${F("login_pass","管理员密码","Admin Password","",{type:"password",req:1,w:"full",ac:"current-password"})}
   </div>
   <div class="row" style="margin-top:14px">
    <button class="btn pri" data-act="auth-login">${L("登录","Sign In")}</button>
   </div>
  </div>`);
+ const box=$("auth_box");
+ if(box)box.onkeydown=e=>{if(e.key==="Enter")ACT["auth-login"]()};
 }
 
 function render(top){
@@ -727,8 +743,6 @@ function render(top){
  syncAuthChrome(true);
  const{p,id}=cur();renderSide(p,id);(PG[p]||PG.home)(id);hydrateImages($("main"));if(top)window.scrollTo(0,0);
 }
-const main=h=>{$("main").innerHTML=h};
-const head=(t,r)=>`<div class="ph"><h2>${t}</h2><div class="row">${r||""}</div></div>`;
 
 ACT["auth-setup"]=()=>{
  const u=V("setup_user"),p1=V("setup_pass"),p2=V("setup_pass2");
@@ -783,12 +797,6 @@ function listPage(key,c){
 function mount(key,c,headHtml){const lp=listPage(key,c);main((headHtml||"")+lp.html);lp.paint()}
 
 /* ---------- forms ---------- */
-const F=(k,z,e,v,o)=>{o=o||{};const id="f_"+k,val=v==null?"":v;let inp;
- if(o.type==="select")inp=`<select class="in" id="${id}">${o.opts.map(([ov,ol])=>`<option value="${esc(ov)}" ${String(ov)===String(val)?"selected":""}>${esc(ol)}</option>`).join("")}</select>`;
- else if(o.type==="textarea")inp=`<textarea class="in" id="${id}" rows="3">${esc(val)}</textarea>`;
- else inp=`<input class="in" id="${id}" type="${o.type||"text"}" ${o.step?`step="${o.step}"`:""} ${o.max?`maxlength="${o.max}"`:""} ${o.type==="number"?'min="0"':""} value="${esc(val)}">`;
- return`<label class="fld ${o.w||""}"><span>${L(z,e)}${o.req?" *":""}</span>${inp}</label>`};
-const V=k=>{const e=$("f_"+k);return e?e.value.trim():""};
 const supOpts=()=>[["",L("— 无 —","— None —")],...sups.map(s=>[s.id,s.name])];
 const catOpts=()=>[["",L("— 未分类 —","— None —")],...cats.map(s=>[s.id,s.name])];
 const cf=(el,fn)=>{if(el.dataset.arm){fn();return}el.dataset.arm=1;const o=el.textContent;el.textContent=L("确认?","Sure?");setTimeout(()=>{el.dataset.arm="";el.textContent=o},3000)};
@@ -1518,10 +1526,10 @@ ACT["set-shop-save"]=()=>{CFG.shop=V("shop");CFG.addr=V("addr");CFG.phone=V("pho
 PG["set-pass"]=()=>main(head(L("修改管理员账号密码","Change Admin Credentials"))+`<div class="card" style="max-width:480px">
  <p class="muted">${L("修改成功后将自动退出登录，请使用新账号密码重新登录。","You will be signed out automatically after updating credentials.")}</p>
  <div class="fg">
-  ${F("cur_pass","当前密码","Current Password","",{type:"password",req:1,w:"full"})}
-  ${F("new_user","新管理员账号","New Admin Username",ADMIN_CRED?ADMIN_CRED.user:"",{req:1,w:"full"})}
-  ${F("new_pass","新管理员密码","New Admin Password","",{type:"password",req:1,w:"full"})}
-  ${F("new_pass2","确认新密码","Confirm New Password","",{type:"password",req:1,w:"full"})}
+  ${F("cur_pass","当前密码","Current Password","",{type:"password",req:1,w:"full",ac:"current-password"})}
+  ${F("new_user","新管理员账号","New Admin Username",ADMIN_CRED?ADMIN_CRED.user:"",{req:1,w:"full",ac:"username"})}
+  ${F("new_pass","新管理员密码","New Admin Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
+  ${F("new_pass2","确认新密码","Confirm New Password","",{type:"password",req:1,w:"full",ac:"new-password"})}
  </div>
  <div class="row" style="margin-top:14px">
   <button class="btn pri" data-act="set-pass-save">${L("保存并登出","Save & Sign Out")}</button>
@@ -1627,7 +1635,7 @@ table.pdf-tbl th.c,table.pdf-tbl td.c{text-align:center}
 .pdf-sum-tbl td:first-child{background:#f3f4f6;color:#374151;font-weight:600}
 .pdf-sum-tbl td:last-child{text-align:right;font-weight:700;color:#111827}
 .pdf-sum-tbl tr.grand td{background:#eef2ff;color:#1d2fa0;font-size:12.5px}
-.pdf-note{border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;background:#fffbeb;font-size:11px;color:#374155;margin-bottom:14px}
+.pdf-note{border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;background:#fffbeb;font-size:11px;color:#334155;margin-bottom:14px}
 .pdf-sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;padding-top:10px}
 .pdf-sign-line{border-top:1px solid #6b7280;padding-top:4px;font-size:11px;color:#4b5563}
 .pdf-ftr{margin-top:14px;padding-top:8px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:10px;color:#6b7280}
