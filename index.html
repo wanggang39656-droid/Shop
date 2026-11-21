@@ -81,7 +81,7 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 .lb .yl{background:#ffe600;text-align:center;font-size:2.4mm;font-weight:700;height:3.6mm;line-height:3.6mm;color:#1d2fa0}
 .lb .shop{font-size:6mm;font-weight:700;color:#1d2fa0;margin-left:36mm;line-height:6.5mm;border-bottom:.3mm solid #1d2fa0}
 .lb .im{position:absolute;left:3mm;top:14.5mm;width:32mm;height:49mm;object-fit:contain}
-.lb .tx{position:absolute;left:36mm;top:23mm;width:55mm}.lb .br{font-size:6mm;font-weight:700;color:#1d2fa0}.lb .d1{font-size:3mm;margin-top:1mm}.lb .d2{font-size:3.4mm;font-weight:700;color:#d11}.lb .sz{font-size:3.6mm;color:#1d3fae;margin-top:2mm}
+.lb .tx{position:absolute;left:36mm;top:23mm;width:55mm;max-height:41mm;overflow:hidden}.lb .br{font-size:calc(6mm*var(--fb,var(--fs,1)));font-weight:700;color:#1d2fa0}.lb .d1{font-size:calc(3mm*var(--f1,var(--fs,1)));margin-top:1mm}.lb .d2{font-size:calc(3.4mm*var(--f2,var(--fs,1)));font-weight:700;color:#d11}.lb .sz{font-size:calc(3.6mm*var(--fz,var(--fs,1)));color:#1d3fae;margin-top:2mm}
 .lb .mp{position:absolute;right:4mm;top:23mm;width:42mm;background:#c8161d;color:#fff;text-align:center;border-radius:1.5mm;padding:1mm 0}.lb .mp small{display:block;font-size:3.4mm;font-weight:700}.lb .mp b{font-size:11mm;line-height:11mm}
 .lb .nm{position:absolute;right:4mm;top:42mm;font-size:3.4mm;font-weight:700}.lb .nm b{color:#c8161d;font-size:4.4mm;margin-left:2mm}
 .lb .bc{position:absolute;right:4mm;bottom:2mm;width:60mm;text-align:center;font-size:2.8mm;letter-spacing:.5mm}.lb .bc svg{width:100%;height:9mm;display:block}
@@ -1085,7 +1085,13 @@ document.addEventListener("change",async e=>{if(e.target.id!=="io_file")return;c
  catch(err){m.textContent=err&&err.message==="nodec"?L("此浏览器不支持读取压缩过的 ZIP,请使用本系统导出的商品包","This browser cannot read compressed ZIPs"):err&&err.message==="noxlsx"?L("ZIP 里没有找到 Excel 文件","No Excel file in the ZIP"):L("无法读取文件,请使用模板;或 Excel 组件未加载","Cannot read file / library not loaded")}e.target.value=""});
 
 /* ===== labels ===== */
-let lblPg=0,lblTpl=localStorage.getItem("lbl_tpl")||"lg";
+let lblPg=0,lblTpl=localStorage.getItem("lbl_tpl")||"lg",lblFs=+localStorage.getItem("lbl_fs")||1.5;
+const LBL_FS=[1,1.25,1.5,1.75,2];if(!LBL_FS.includes(lblFs))lblFs=1.5;
+/* shrink a label's text only if it would overflow its fixed box, so the layout never changes */
+function fitLabels(root){root.querySelectorAll(".lb .tx").forEach(function(tx){var base=parseFloat(getComputedStyle(tx).getPropertyValue("--fs"))||1,E=[[".br","--fb"],[".d1","--f1"],[".d2","--f2"],[".sz","--fz"]].map(function(a){var el=tx.querySelector(a[0]);return el?{el:el,v:a[1],f:base}:null}).filter(Boolean);
+ function set(e){tx.style.setProperty(e.v,e.f)}
+ E.forEach(function(e){while(e.el.scrollWidth>e.el.clientWidth+1&&e.f>1){e.f=Math.max(1,Math.round((e.f-.05)*100)/100);set(e)}if(e.el.scrollWidth>e.el.clientWidth+1)e.el.style.overflowWrap="anywhere"});
+ while(tx.scrollHeight>tx.clientHeight+1&&E.some(function(e){return e.f>1})){E.forEach(function(e){if(e.f>1){e.f=Math.max(1,Math.round((e.f-.05)*100)/100);set(e)}})}})}
 const lblSupSel={};
 const LBL_TPLS={
  lg:{cls:"tpl-lg",cols:3,w:"94mm",s:.67,per:12,zh:"大模板(一排3)",en:"Large (3/row)"},
@@ -1103,12 +1109,12 @@ function selectedLabelCode(i){
 const labelHtml=i=>{const im=imgOf(i),code=selectedLabelCode(i);return`<div class="lbw"><div class="lb"><div class="hd">${esc(CFG.cn)}</div><div class="yl">${esc(CFG.tag)}</div><div class="shop">${esc(CFG.en)}</div>${im?`<img class="im" src="" data-imgid="${esc(im)}" alt="">`:""}<div class="tx"><div class="br">${esc(i.brand)}</div><div class="d1">${esc(i.d1)}</div>${i.d2?`<div class="d2">${esc(i.d2)}</div>`:""}<div class="sz">${esc(i.size)}</div></div><div class="mp"><small>MEMBER PRICE</small><b>${esc(CFG.cur)}${i.mp.toFixed(2)}</b></div><div class="nm">NON-MEMBER PRICE<b>${esc(CFG.cur)}${i.np.toFixed(2)}</b></div><div class="bc">${eanSvg(code)}${esc(code)}</div></div></div>`};
 const labelList=()=>items.filter(i=>i.on).flatMap(i=>Array.from({length:Math.max(1,i.copies||1)},()=>i));
 function paintPrev(){const cfg=LBL_TPLS[lblTpl]||LBL_TPLS.lg,per=cfg.per,all=labelList(),sel=items.filter(i=>i.on),pages=Math.max(1,Math.ceil(all.length/per));if(lblPg>=pages)lblPg=pages-1;if(lblPg<0)lblPg=0;
- const sh=$("sheet");if(!sh)return;sh.className="sheet "+cfg.cls;const part=all.slice(lblPg*per,lblPg*per+per);sh.innerHTML=part.map(labelHtml).join("")||`<div class="empty">${L("请在上方勾选要打印的商品","Tick products above")}</div>`;hydrateImages(sh);
+ const sh=$("sheet");if(!sh)return;sh.className="sheet "+cfg.cls;sh.style.setProperty("--fs",lblFs);const part=all.slice(lblPg*per,lblPg*per+per);sh.innerHTML=part.map(labelHtml).join("")||`<div class="empty">${L("请在上方勾选要打印的商品","Tick products above")}</div>`;hydrateImages(sh);fitLabels(sh);
  $("previnfo").innerHTML=L(`已选 <b>${sel.length}</b> 个商品,共 <b>${all.length}</b> 张标签 · 第 ${lblPg+1}/${pages} 页(本页 ${part.length} 张,每页最多 ${per} 张)`,`<b>${sel.length}</b> products, <b>${all.length}</b> labels · page ${lblPg+1}/${pages} (${part.length} on this page, max ${per})`)}
 PG["label-print"]=()=>{const tplRadios=Object.entries(LBL_TPLS).map(([k,c])=>`<label><input type="radio" name="lbl_tpl" data-act="lbl-tpl" data-id="${k}" ${lblTpl===k?"checked":""}><span>${L(c.zh,c.en)}</span></label>`).join("");
  mount("label-print",{data:()=>items,hay:i=>[pname(i),itemCodes(i).join(" "),i.sku,nm(cats,i.cat),itemSupNames(i).join(" ")].join(" "),fields:pFields(),filters:pFilters(),cols:[
   {h:["选择","Select"],f:i=>`<input type="checkbox" data-act="lbl-tog" data-id="${i.id}" ${i.on?"checked":""}>`},
-  {h:["商品","Product"],f:(i,t)=>hl(pname(i),t)},
+  {h:["商品","Product"],f:(i,t)=>pcell(i,t,"")},
   {h:["供应商条码","Supplier & Barcode"],f:i=>{
     const list=Array.isArray(i.supplierItems)?i.supplierItems:[];
     if(!list.length)return`<span class="muted">—</span>`;
@@ -1126,9 +1132,9 @@ PG["label-print"]=()=>{const tplRadios=Object.entries(LBL_TPLS).map(([k,c])=>`<l
   {h:["非会员价","Non-member"],cls:"num",f:i=>money(i.np)},
   {h:["份数","Copies"],cls:"num",f:i=>`<input class="in" type="number" min="1" max="99" data-f="copies" data-id="${i.id}" value="${i.copies||1}">`}
  ],
- tool:`<button class="btn" data-act="lbl-all">${L("全选筛选结果","Select filtered")}</button><button class="btn" data-act="lbl-none">${L("取消筛选结果","Clear filtered")}</button><span class="tpl-grp" role="radiogroup">${tplRadios}</span><button class="btn pri" data-act="lbl-print">🖨 ${L("打印 A4","Print A4")}</button>`,after:()=>paintPrev()},head(L("价签打印","Print labels")));
+ tool:`<button class="btn" data-act="lbl-all">${L("全选筛选结果","Select filtered")}</button><button class="btn" data-act="lbl-none">${L("取消筛选结果","Clear filtered")}</button><span class="tpl-grp" role="radiogroup">${tplRadios}</span><label class="muted" style="white-space:nowrap">${L("文字大小","Font size")} <select class="in sm" data-lblfs="1">${LBL_FS.map(f=>`<option value="${f}" ${f===lblFs?"selected":""}>${Math.round(f*100)}%${f===1?L("(原大小)"," (original)"):""}</option>`).join("")}</select></label><button class="btn pri" data-act="lbl-print">🖨 ${L("打印 A4","Print A4")}</button>`,after:()=>paintPrev()},head(L("价签打印","Print labels")));
  $("main").insertAdjacentHTML("beforeend",`<div class="card"><div class="row"><h3 class="grow">${L("预览","Preview")}</h3><span id="previnfo" class="muted"></span><button class="btn sm" data-act="prev-pg" data-id="-1">‹</button><button class="btn sm" data-act="prev-pg" data-id="1">›</button></div><div class="sheetwrap"><div class="sheet ${LBL_TPLS[lblTpl].cls}" id="sheet"></div></div></div>`);paintPrev()};
-document.addEventListener("change",e=>{const pid=e.target.dataset&&e.target.dataset.lblsup;if(pid!=null){lblSupSel[pid]=+e.target.value;paintPrev()}});
+document.addEventListener("change",e=>{const d=e.target.dataset||{};if(d.lblsup!=null){lblSupSel[d.lblsup]=+e.target.value;paintPrev()}if(d.lblfs!=null){lblFs=+e.target.value||1;try{localStorage.setItem("lbl_fs",lblFs)}catch(x){}paintPrev()}});
 ACT["lbl-tpl"]=(id)=>{if(!LBL_TPLS[id])return;lblTpl=id;try{localStorage.setItem("lbl_tpl",id)}catch(e){}paintPrev()};
 ACT["lbl-tog"]=(id,el)=>{const i=byId(items,id);i.on=el.checked;SAVE.items();paintPrev()};
 ACT["lbl-all"]=()=>{LST["label-print"].rows().forEach(i=>i.on=true);SAVE.items();LST["label-print"].paint()};
@@ -1141,11 +1147,11 @@ ACT["lbl-print"]=async()=>{const sel=labelList();if(!sel.length){toast(L("请先
  const urlMap={};
  for(const it of sel){const id=imgOf(it);if(id&&!urlMap[id]){const b=await ImgDB.get(id);if(b){const u=URL.createObjectURL(b);urlMap[id]=u;printUrls.push(u)}}}
  const renderPrintLbl=i=>{const im=imgOf(i),u=im?urlMap[im]||"":"",code=selectedLabelCode(i);return`<div class="lbw"><div class="lb"><div class="hd">${esc(CFG.cn)}</div><div class="yl">${esc(CFG.tag)}</div><div class="shop">${esc(CFG.en)}</div>${u?`<img class="im" src="${u}" alt="">`:""}<div class="tx"><div class="br">${esc(i.brand)}</div><div class="d1">${esc(i.d1)}</div>${i.d2?`<div class="d2">${esc(i.d2)}</div>`:""}<div class="sz">${esc(i.size)}</div></div><div class="mp"><small>MEMBER PRICE</small><b>${esc(CFG.cur)}${i.mp.toFixed(2)}</b></div><div class="nm">NON-MEMBER PRICE<b>${esc(CFG.cur)}${i.np.toFixed(2)}</b></div><div class="bc">${eanSvg(code)}${esc(code)}</div></div></div>`};
- w.document.write('<!doctype html><meta charset="utf-8"><title>Labels</title><style>'+$("appcss").textContent+'body{background:#fff}.sheet{--s:'+cfg.s+'!important}.lbw{break-inside:avoid}.sheet{grid-template-columns:repeat('+cfg.cols+','+cfg.w+')!important;gap:2mm;display:grid;justify-content:center}.lb{break-inside:avoid;height:66mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4 landscape;margin:5mm}</style><div class="sheet '+cfg.cls+'">'+sel.map(renderPrintLbl).join("")+'</div>');
+ w.document.write('<!doctype html><meta charset="utf-8"><title>Labels</title><style>'+$("appcss").textContent+'body{background:#fff}.sheet{--s:'+cfg.s+'!important;--fs:'+lblFs+'}.lbw{break-inside:avoid}.sheet{grid-template-columns:repeat('+cfg.cols+','+cfg.w+')!important;gap:2mm;display:grid;justify-content:center}.lb{break-inside:avoid;height:66mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4 landscape;margin:5mm}</style><div class="sheet '+cfg.cls+'">'+sel.map(renderPrintLbl).join("")+'</div><script>'+fitLabels.toString()+';fitLabels(document)<\/script>');
  w.document.close();
  setTimeout(()=>{w.print();setTimeout(()=>printUrls.forEach(u=>URL.revokeObjectURL(u)),5000)},600)};
 
-PG["label-set"]=()=>{main(head(L("价签设置","Label settings"))+`<div class="card"><div class="fg">${F("cn","抬头文字","Header text",CFG.cn)}${F("en","店名","Shop name",CFG.en)}${F("tag","标语","Tagline",CFG.tag,{w:"full"})}${F("cur","货币符号","Currency symbol",CFG.cur)}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="lbl-save">${L("保存","Save")}</button></div></div><div class="card"><h3>${L("效果预览","Preview")}</h3><div class="sheetwrap"><div class="sheet" style="grid-template-columns:94mm">${items[0]?labelHtml(items[0]):""}</div></div></div>`)};
+PG["label-set"]=()=>{main(head(L("价签设置","Label settings"))+`<div class="card"><div class="fg">${F("cn","抬头文字","Header text",CFG.cn)}${F("en","店名","Shop name",CFG.en)}${F("tag","标语","Tagline",CFG.tag,{w:"full"})}${F("cur","货币符号","Currency symbol",CFG.cur)}</div><div class="row" style="margin-top:12px"><button class="btn pri" data-act="lbl-save">${L("保存","Save")}</button></div></div><div class="card"><h3>${L("效果预览","Preview")}</h3><div class="sheetwrap"><div class="sheet" id="sheet_set" style="grid-template-columns:94mm;--fs:${lblFs}">${items[0]?labelHtml(items[0]):""}</div></div></div>`)};
 ACT["lbl-save"]=()=>{CFG.cn=V("cn");CFG.en=V("en");CFG.tag=V("tag");CFG.cur=V("cur")||"$";SAVE.cfg();toast(L("已保存","Saved"));render()};
 
 /* ===== suppliers ===== */
