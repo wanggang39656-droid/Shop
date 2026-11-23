@@ -136,6 +136,9 @@ mark{background:var(--hl);color:inherit;border-radius:2px}.empty{padding:28px;te
 #login .card{width:min(380px,100%);margin:auto}
 #usr{font-size:12px;color:var(--mut);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rc{font:700 20px/1.4 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;background:var(--bg);border:1px dashed var(--pri);border-radius:8px;padding:12px;margin:10px 0;user-select:all;-webkit-user-select:all}
+.selimg{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.selimg input{width:20px;height:20px;flex:none}
+.bxrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--bd)}.bxck{min-width:112px;font-weight:600;white-space:nowrap}.bxc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1}.bxc label{white-space:nowrap}
+#bsel_bar{align-items:center;gap:8px;flex-wrap:wrap}
 </style></head><body>
 <div class="app"><nav class="side" id="side"></nav><div class="mask" id="mask"></div><div class="main"><div class="top"><button class="btn burger" data-act="burger">☰</button><div class="crumb" id="crumb"></div><button class="btn sm" id="langbtn" data-act="lang"></button><span id="usr"></span><button class="btn sm" id="pwbtn" data-act="pw" title="修改密码 / Change password">🔑</button><button class="btn sm" id="outbtn" data-act="logout"></button></div><div class="content" id="main"></div></div></div>
 <nav class="bnav" id="bnav"></nav><div id="toast"></div><div id="scan_modal"></div><div id="zoom"></div><div id="login"></div>
@@ -658,7 +661,7 @@ const MENU=[
 {id:"rep",i:"📈",z:"报表中心",e:"Reports",c:[{id:"rep-stock",z:"库存报表",e:"Stock report"},{id:"rep-buy",z:"采购报表",e:"Purchase report"},{id:"rep-var",z:"盘点差异报表",e:"Variance report"},{id:"rep-margin",z:"商品毛利报表",e:"Margin report"},{id:"rep-exp",z:"效期报表",e:"Expiry report"}]},
 {id:"set",i:"⚙️",z:"设置",e:"Settings",c:[{id:"set-shop",z:"店铺信息",e:"Shop info"},{id:"set-lang",z:"语言与显示",e:"Language"},{id:"set-data",z:"数据导入导出",e:"Data backup"},{id:"set-about",z:"关于系统",e:"About"}]}];
 const DETAIL=new Set(["prod-detail","prod-edit","sup-detail","sup-edit","po-detail","po-edit","staff-detail","staff-edit","stk-detail"]);
-const PARENT={"po-import":"po-list","prod-detail":"prod-list","sup-detail":"sup-list","po-detail":"po-list","staff-detail":"staff-list","stk-detail":"stk-hist"};
+const PARENT={"po-import":"po-list","prod-batch":"prod-list","prod-detail":"prod-list","sup-detail":"sup-list","po-detail":"po-list","staff-detail":"staff-list","stk-detail":"stk-hist"};
 const EDITP={"prod-edit":"prod-list","sup-edit":"sup-list","po-edit":"po-list","staff-edit":"staff-list"};
 const PG={},ACT={},S={},LST={};
 const actId=(p,id)=>PARENT[p]||(id&&EDITP[p])||p;
@@ -671,7 +674,7 @@ function renderSide(p,id){const act=actId(p,id);
   if(m.c.length===1)return`<a class="m1 ${open?"on":""}" data-go="${m.c[0].id}">${m.i} ${L(m.z,m.e)}</a>`;
   return`<div class="mg ${open?"open":""}"><a class="m1 ${open?"on":""}" data-mg="1">${m.i} ${L(m.z,m.e)}<span class="car">›</span></a><div class="m2w">${m.c.map(c=>{const tb=c.id===act?tabsOf(c.id):null;
    return`<a class="m2 ${c.id===act?"on":""}" data-go="${c.id}">${L(c.z,c.e)}${c.id==="stk-expiry"&&expAlerts().length?`<span class="bdg">${expAlerts().length}</span>`:""}</a>`+(tb?tb.map(t=>`<a class="m3 ${((S[c.id]||{}).tab||tb[0].id)===t.id?"on":""}" data-tab3="${c.id}|${t.id}">${L(t.z,t.e)}</a>`).join(""):"")}).join("")}</div></div>`}).join("");
- const [m1,m2]=find2(act);const sub=PARENT[p]||EDITP[p]?` › <b>${L(...({"prod-detail":["商品详情","Detail"],"sup-detail":["供应商详情","Detail"],"po-detail":["采购单详情","Detail"],"staff-detail":["员工详情","Detail"],"stk-detail":["盘点详情","Detail"],"prod-edit":["编辑商品","Edit"],"sup-edit":["编辑供应商","Edit"],"po-edit":["编辑采购单","Edit"],"staff-edit":["编辑员工","Edit"],"po-import":["导入PO单","Import PO"]}[p]||["",""]))}</b>`:"";
+ const [m1,m2]=find2(act);const sub=PARENT[p]||EDITP[p]?` › <b>${L(...({"prod-detail":["商品详情","Detail"],"sup-detail":["供应商详情","Detail"],"po-detail":["采购单详情","Detail"],"staff-detail":["员工详情","Detail"],"stk-detail":["盘点详情","Detail"],"prod-edit":["编辑商品","Edit"],"sup-edit":["编辑供应商","Edit"],"po-edit":["编辑采购单","Edit"],"staff-edit":["编辑员工","Edit"],"po-import":["导入PO单","Import PO"],"prod-batch":["批量编辑","Batch edit"]}[p]||["",""]))}</b>`:"";
  $("crumb").innerHTML=`${L(m1.z,m1.e)} › ${m1.c.length>1?L(m2.z,m2.e):""}${id&&EDITP[p]||PARENT[p]?sub:""}`.replace(/ › $/,"");
  const bn=[["home","🏠",L("首页","Home")],["prod-list","📦",L("商品","Products")],["stk-overview","📋",L("库存","Stock")],["po-list","🧾",L("采购","Orders")]];
  $("bnav").innerHTML=bn.filter(b=>canM(find2(b[0])[0].id)).map(b=>`<a data-go="${b[0]}" class="${find2(act)[0]===find2(b[0])[0]?"on":""}"><i>${b[1]}</i>${b[2]}</a>`).join("")+`<a data-act="drawer"><i>☰</i>${L("菜单","Menu")}</a>`}
@@ -875,8 +878,8 @@ ACT["crud-del"]=(v,el)=>cf(el,()=>{const[k,id]=v.split("|"),c=CR[k],a=c.arr();co
 
 /* ===== products ===== */
 PG["prod-list"]=()=>{const ic=i=>{const im=imgOf(i);return im?`<img class="thumb" src="" data-imgid="${esc(im)}" data-act="imgzoom" data-id="${i.id}" alt="">`:`<span class="noimg">📦</span>`};
- mount("prod-list",{tcls:"pt",scan:true,data:()=>items,hay:i=>[pname(i),itemCodes(i).join(" "),i.sku,nm(cats,i.cat),itemSupNames(i).join(" "),i.mp,i.np].join(" "),fields:pFields(),filters:pFilters(),tabs:TABS["prod-list"](),
- cols:[{h:["图片","Image"],f:ic},
+ mount("prod-list",{tcls:"pt",scan:true,data:()=>items,pre:`<div id="bsel_bar" class="tb" style="margin-bottom:8px"></div>`,after:r=>bselUpdate(r),hay:i=>[pname(i),itemCodes(i).join(" "),i.sku,nm(cats,i.cat),itemSupNames(i).join(" "),i.mp,i.np].join(" "),fields:pFields(),filters:pFilters(),tabs:TABS["prod-list"](),
+ cols:[{h:["选择/图片","Select / Image"],f:i=>`<div class="selimg"><input type="checkbox" data-act="bsel-tog" data-id="${i.id}" ${bsHas(i.id)?"checked":""}>${ic(i)}</div>`},
  {h:["商品","Product"],f:(i,t)=>{const sNames=itemSupNames(i).join("、");return`<a class="lnk" data-go="prod-detail-${i.id}">${hl(pname(i),t)}</a><div class="sub">${i.sku?"SKU "+hl(i.sku,t)+" · ":""}${hl(nm(cats,i.cat)||L("未分类","No category"),t)} · ${hl(sNames||L("无供应商","No supplier"),t)}</div>`}},
  {h:["价格","Price"],f:i=>`<div class="pr">${L("会员","Member")} <b>${money(i.mp)}</b> · ${L("非会员","Non-member")} ${money(i.np)}</div>`},
  {h:["库存","Stock"],f:i=>`<div class="pr">${L("货架","Shelf")} <b>${i.qs}</b> · ${L("仓库","WH")} <b>${i.qw}</b> ${tagS(i)} ${i.exp?tagE(i):""}</div>`},
@@ -1788,6 +1791,73 @@ ACT["poimp-save"]=st=>{const d=S.poImp;if(!d)return;let sid=V("sup");if(!sid){to
  const date=V("date")||today(),po={id:uid(),no:poNo(date),sup:sid,date,note:V("note"),status:st==="ordered"?"ordered":"draft",lines};
  pos.push(po);SAVE.items();SAVE.pos();delete S.poImp;
  toast(L("已生成采购单 "+po.no+(made?`,新建商品 ${made} 个`:"")+(skip?`,跳过 ${skip} 行`:""),"Created "+po.no));go("po-detail-"+po.id)};
+
+/* ---------- batch edit products ---------- */
+const bs=()=>S.bsel||(S.bsel=new Set()),bsHas=id=>bs().has(String(id));
+function bselUpdate(r){const bar=$("bsel_bar");if(!bar)return;const LP=LST["prod-list"];if(!LP)return;const R=r||LP.rows(),n=bs().size,st=LP.st,pg=R.slice((st.pg-1)*st.size,st.pg*st.size),u=S.bundo;
+ bar.innerHTML=(n?`<span>${L("已选","Selected")} <b>${n}</b> ${L("件","")}</span>`:`<span class="muted">${L("勾选商品后可批量编辑 / 删除","Tick products to batch edit / delete")}</span>`)+
+  `<button class="btn sm" data-act="bsel-page">${L("本页全选/取消","Page all/none")}</button><button class="btn sm" data-act="bsel-all">${L("全选筛选结果","Select all filtered")} (${R.length})</button>`+
+  (n?`<button class="btn sm" data-act="bsel-none">${L("清除选择","Clear")}</button><span class="grow"></span><button class="btn sm pri" data-go="prod-batch">✏️ ${L("批量编辑","Batch edit")}</button><button class="btn sm" data-act="bsel-label">🏷️ ${L("加入价签打印","To label print")}</button><button class="btn sm red" data-act="bsel-del">🗑 ${L("批量删除","Delete")} (${n})</button>`:"")+
+  (u?`<button class="btn sm" data-act="bx-undo">↩ ${L("撤销上次批量修改","Undo last batch edit")} (${u.n})</button>`:"")}
+ACT["bsel-tog"]=(id,el)=>{el.checked?bs().add(String(id)):bs().delete(String(id));bselUpdate()};
+ACT["bsel-page"]=()=>{const LP=LST["prod-list"],st=LP.st,pg=LP.rows().slice((st.pg-1)*st.size,st.pg*st.size),all=pg.length&&pg.every(i=>bsHas(i.id));pg.forEach(i=>all?bs().delete(String(i.id)):bs().add(String(i.id)));LP.paint()};
+ACT["bsel-all"]=()=>{const LP=LST["prod-list"];LP.rows().forEach(i=>bs().add(String(i.id)));LP.paint()};
+ACT["bsel-none"]=()=>{bs().clear();LST["prod-list"].paint()};
+ACT["bsel-label"]=()=>{items.forEach(i=>i.on=bsHas(i.id));SAVE.items();go("label-print")};
+ACT["bsel-del"]=(id,el)=>cf(el,async()=>{const ids=new Set(bs()),gone=items.filter(i=>ids.has(String(i.id)));if(!gone.length)return;
+ items=items.filter(i=>!ids.has(String(i.id)));batches=batches.filter(b=>!ids.has(String(b.pid)));SAVE.items();SAVE.batches();
+ for(const g of gone){if(g.img)await releaseUnusedImg(g.img)}
+ bs().clear();delete S.bundo;toast(L("已删除 "+gone.length+" 件商品","Deleted "+gone.length+" products"));render()});
+const bxClone=o=>JSON.parse(JSON.stringify(o));
+function bxCfg(){const g=id=>$(id),on=id=>!!(g("bx_"+id)&&g("bx_"+id).checked),v=id=>g(id)?g(id).value:"";
+ return{cat:{on:on("cat"),v:v("bx_catv")},pr:{on:on("pr"),mp:on("mp"),np:on("np"),mode:v("bx_pm"),val:parseFloat(v("bx_pv")),round:v("bx_pround")},
+  sup:{on:on("sup"),mode:v("bx_sm"),id:v("bx_sv")},min:{on:on("min"),v:Math.max(0,Math.round(parseFloat(v("bx_minv"))))},ls:{on:on("ls"),v:v("bx_lsv")},lw:{on:on("lw"),v:v("bx_lwv")},unit:{on:on("unit"),v:v("bx_unitv").trim()}}}
+function bxCheck(c){if(!(c.cat.on||c.pr.on||c.sup.on||c.min.on||c.ls.on||c.lw.on||c.unit.on))return L("请至少勾选一项要修改的内容","Tick at least one thing to change");
+ if(c.pr.on){if(!c.pr.mp&&!c.pr.np)return L("请选择要改会员价还是非会员价","Choose member and/or non-member price");if(!isFinite(c.pr.val))return L("请输入价格数值","Enter a number for the price");
+  if(c.pr.mode==="set"&&c.pr.val<0)return L("固定价不能为负","Price cannot be negative");if(c.pr.mode==="pct"&&c.pr.val<=-100)return L("百分比必须大于 -100","Percent must be above -100")}
+ if(c.sup.on&&!c.sup.id)return L("请选择供应商","Choose a supplier");if(c.min.on&&!isFinite(c.min.v))return L("请输入最低库存","Enter min stock");return""}
+function bxPlan(it,c){const p={},d=[],sn=x=>nm(sups,x)||"—";
+ if(c.cat.on&&String(it.cat||"")!==String(c.cat.v)){p.cat=c.cat.v;d.push(L("分类 ","Category ")+(nm(cats,it.cat)||"—")+" → "+(nm(cats,c.cat.v)||L("未分类","None")))}
+ if(c.pr.on)["mp","np"].forEach(k=>{if(!c.pr[k])return;const o=+it[k]||0;let r=c.pr.mode==="set"?c.pr.val:c.pr.mode==="add"?o+c.pr.val:o*(1+c.pr.val/100);
+  r=Math.max(0,c.pr.round==="0.05"?Math.round(r*20)/20:Math.round(r*100)/100);if(Math.abs(r-o)>1e-9){p[k]=r;d.push((k==="mp"?L("会员价 ","Member "):L("非会员价 ","Non-member "))+money(o)+" → "+money(r))}});
+ if(c.sup.on&&c.sup.id){const sid=String(c.sup.id),cur=Array.isArray(it.supplierItems)?it.supplierItems:[];let n=null,t="";
+  if(c.sup.mode==="add"){if(!cur.some(x=>String(x.supId)===sid)){n=[...bxClone(cur),{supId:sid,supName:sn(sid),barcode:"",cost:0,note:""}];t=L("添加供应商 ","+ supplier ")+sn(sid)}}
+  else if(c.sup.mode==="set"){const seen=new Set();n=bxClone(cur).map(x=>({...x,supId:sid,supName:sn(sid)})).filter(x=>{const k=x.barcode||"";if(seen.has(k))return false;seen.add(k);return true});if(!n.length)n=[{supId:sid,supName:sn(sid),barcode:"",cost:0,note:""}];
+   if(JSON.stringify(n)===JSON.stringify(cur))n=null;else t=L("供应商设为 ","Supplier → ")+sn(sid)}
+  else if(cur.some(x=>String(x.supId)===sid)){n=bxClone(cur).map(x=>String(x.supId)===sid?{...x,supId:"",supName:""}:x);t=L("解除供应商 ","− supplier ")+sn(sid)}
+  if(n){p.supplierItems=n;d.push(t)}}
+ if(c.min.on&&(+it.min||0)!==c.min.v){p.min=c.min.v;d.push(L("最低库存 ","Min ")+(+it.min||0)+" → "+c.min.v)}
+ if(c.ls.on&&String(it.ls||"")!==String(c.ls.v)){p.ls=c.ls.v;d.push(L("货架位置 ","Shelf ")+(nm(locs,it.ls)||"—")+" → "+(nm(locs,c.ls.v)||"—"))}
+ if(c.lw.on&&String(it.lw||"")!==String(c.lw.v)){p.lw=c.lw.v;d.push(L("仓库位置 ","Warehouse ")+(nm(locs,it.lw)||"—")+" → "+(nm(locs,c.lw.v)||"—"))}
+ if(c.unit.on&&String(it.unit||"")!==c.unit.v){p.unit=c.unit.v;d.push(L("单位 ","Unit ")+(it.unit||"—")+" → "+(c.unit.v||"—"))}
+ return{patch:p,keys:Object.keys(p),desc:d}}
+function bxPreview(){const box=$("bx_prev");if(!box)return;
+ ["cat","pr","sup","min","ls","lw","unit"].forEach(id=>{const e=$("bx_"+id);if(!e)return;const row=e.closest(".bxrow");row.style.opacity=e.checked?1:.55;row.querySelectorAll(".bxc input,.bxc select").forEach(x=>x.disabled=!e.checked)});
+ const c=bxCfg(),err=bxCheck(c),sel=[...bs()].map(id=>byId(items,id)).filter(Boolean);
+ if(err){box.innerHTML=`<p class="muted">${esc(err)}</p>`;$("bx_apply").disabled=true;return}
+ const plans=sel.map(it=>({it,pl:bxPlan(it,c)})),chg=plans.filter(x=>x.pl.keys.length);$("bx_apply").disabled=!chg.length;
+ box.innerHTML=`<p>${L("将修改","Will change")} <b>${chg.length}</b> ${L("件","")} · ${L("无变化","unchanged")} ${plans.length-chg.length} ${L("件","")}</p>${chg.length?`<div class="tw"><table class="rt"><thead><tr><th>${L("商品","Product")}</th><th>${L("变化","Change")}</th></tr></thead><tbody>${chg.slice(0,10).map(x=>`<tr><td data-label="${L("商品","Product")}">${esc(pname(x.it))}</td><td data-label="${L("变化","Change")}" style="text-align:left">${x.pl.desc.map(esc).join("<br>")}</td></tr>`).join("")}</tbody></table></div>${chg.length>10?`<p class="muted">${L("仅预览前 10 件","Previewing first 10")}</p>`:""}`:""}`}
+["input","change"].forEach(ev=>document.addEventListener(ev,e=>{if(e.target.dataset&&e.target.dataset.bx)bxPreview()}));
+PG["prod-batch"]=()=>{const sel=[...bs()].map(id=>byId(items,id)).filter(Boolean),bk=`<button class="btn" data-go="prod-list">← ${L("返回商品列表","Back to list")}</button>`;
+ if(!sel.length){main(head(L("批量编辑","Batch edit"),bk)+`<div class="empty">${L("还没有选择商品,请先在商品列表勾选","No products selected; tick some in the product list first")}</div>`);return}
+ const so=(id,o,x)=>`<select class="in sm" id="${id}" data-bx="1" ${x||""}>${o.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join("")}</select>`,rw=(id,z,e,ctrl)=>`<div class="bxrow"><label class="bxck"><input type="checkbox" id="bx_${id}" data-bx="1"> ${L(z,e)}</label><div class="bxc">${ctrl}</div></div>`;
+ main(head(L("批量编辑","Batch edit")+` · ${sel.length} ${L("件商品","products")}`,bk)+`<div class="card"><p class="muted" style="margin-bottom:4px">${L("勾选要修改的项目,未勾选的项目保持不变;下方可先预览再应用。","Tick what to change; unticked items stay as they are. Preview below before applying.")}</p>
+ <p class="muted" style="margin-top:0">${sel.slice(0,6).map(i=>esc(pname(i))).join("、")}${sel.length>6?" …":""}</p>
+ ${rw("cat","分类","Category",so("bx_catv",catOpts()))}
+ ${rw("pr","价格","Price",`<label><input type="checkbox" id="bx_mp" data-bx="1" checked> ${L("会员价","Member")}</label><label><input type="checkbox" id="bx_np" data-bx="1" checked> ${L("非会员价","Non-member")}</label>${so("bx_pm",[["set",L("设为固定价","Set to")],["add",L("增加/减少金额","Add / subtract")],["pct",L("按百分比调整","Adjust by %")]])}<input class="in sm" id="bx_pv" data-bx="1" type="number" step="any" inputmode="decimal" style="width:100px" placeholder="${L("数值,可为负","value, may be negative")}">${so("bx_pround",[["0.01",L("保留两位小数","2 decimals")],["0.05",L("取整到 0.05","Round to 0.05")]])}`)}
+ ${rw("sup","供应商","Supplier",`${so("bx_sm",[["add",L("添加该供应商","Add supplier")],["set",L("设为唯一供应商","Make only supplier")],["del",L("解除该供应商关联","Remove supplier")]])}${so("bx_sv",sups.map(x=>[x.id,x.name]),sups.length?"":"disabled")}`)}
+ ${rw("min","最低库存","Min stock",`<input class="in sm" id="bx_minv" data-bx="1" type="number" min="0" style="width:100px">`)}
+ ${rw("ls","货架位置","Shelf location",so("bx_lsv",locOpts("shelf")))}
+ ${rw("lw","仓库位置","Warehouse location",so("bx_lwv",locOpts("wh")))}
+ ${rw("unit","单位","Unit",`<input class="in sm" id="bx_unitv" data-bx="1" type="text" style="width:120px">`)}
+ </div><div class="card"><h3>${L("预览","Preview")}</h3><div id="bx_prev"></div><div class="row" style="margin-top:10px"><button class="btn pri" id="bx_apply" data-act="bx-apply" disabled>${L("应用到 "+sel.length+" 件商品","Apply to "+sel.length+" products")}</button><button class="btn" data-go="prod-list">${L("取消","Cancel")}</button></div></div>`);
+ bxPreview()};
+ACT["bx-apply"]=()=>{const c=bxCfg(),err=bxCheck(c);if(err){toast(err);return}
+ const undo=[];let n=0;[...bs()].map(id=>byId(items,id)).filter(Boolean).forEach(it=>{const pl=bxPlan(it,c);if(!pl.keys.length)return;
+  undo.push({id:it.id,old:Object.fromEntries(pl.keys.map(k=>[k,bxClone(it[k]===undefined?"":it[k])]))});Object.assign(it,pl.patch);n++});
+ if(!n){toast(L("没有商品发生变化","Nothing changed"));return}
+ SAVE.items();S.bundo={n,rows:undo};toast(L("已修改 "+n+" 件商品(可在列表页撤销)","Updated "+n+" products (undo on the list)"));go("prod-list")};
+ACT["bx-undo"]=()=>{const u=S.bundo;if(!u)return;u.rows.forEach(r=>{const it=byId(items,r.id);if(it)Object.assign(it,bxClone(r.old))});SAVE.items();delete S.bundo;toast(L("已撤销","Undone"));render()};
 
 /* ---------- login / auth ---------- */
 const AUTH=(()=>{
